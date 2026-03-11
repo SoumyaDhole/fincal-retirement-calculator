@@ -1,24 +1,112 @@
+"use client";
+
+import { useState } from "react";
+
 export default function Home() {
+
+  const [currentAge, setCurrentAge] = useState("");
+  const [retirementAge, setRetirementAge] = useState("");
+  const [expense, setExpense] = useState("");
+  const [inflation, setInflation] = useState("");
+  const [preReturn, setPreReturn] = useState("");
+  const [postReturn, setPostReturn] = useState("");
+  const [years, setYears] = useState("");
+
+  const [result, setResult] = useState<any>(null);
+
+  const calculateRetirement = async () => {
+
+    const response = await fetch("http://localhost:5000/retirement", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        currentAge: Number(currentAge),
+        retirementAge: Number(retirementAge),
+        currentExpense: Number(expense),
+        inflationRate: Number(inflation),
+        preReturn: Number(preReturn),
+        postReturn: Number(postReturn),
+        retirementYears: Number(years)
+      })
+    });
+
+    const data = await response.json();
+    setResult(data);
+  };
+
   return (
-    <main className="min-h-screen p-10 bg-gray-100">
-      <h1 className="text-3xl font-bold mb-6">
-        Retirement Planning Calculator
-      </h1>
+    <main style={{ padding: "40px", fontFamily: "Arial" }}>
 
-      <div className="grid gap-4 max-w-xl">
+      <h1>Retirement Planning Calculator</h1>
 
-        <input placeholder="Current Age" className="p-2 border rounded" />
-        <input placeholder="Retirement Age" className="p-2 border rounded" />
-        <input placeholder="Current Annual Expenses" className="p-2 border rounded" />
-        <input placeholder="Expected Inflation (%)" className="p-2 border rounded" />
-        <input placeholder="Pre-Retirement Return (%)" className="p-2 border rounded" />
-        <input placeholder="Post-Retirement Return (%)" className="p-2 border rounded" />
+      <div style={{ display: "grid", gap: "10px", maxWidth: "400px" }}>
 
-        <button className="bg-blue-600 text-white p-2 rounded">
+        <input placeholder="Current Age"
+          value={currentAge}
+          onChange={(e) => setCurrentAge(e.target.value)}
+        />
+
+        <input placeholder="Retirement Age"
+          value={retirementAge}
+          onChange={(e) => setRetirementAge(e.target.value)}
+        />
+
+        <input placeholder="Current Annual Expenses"
+          value={expense}
+          onChange={(e) => setExpense(e.target.value)}
+        />
+
+        <input placeholder="Inflation Rate (%)"
+          value={inflation}
+          onChange={(e) => setInflation(e.target.value)}
+        />
+
+        <input placeholder="Pre-Retirement Return (%)"
+          value={preReturn}
+          onChange={(e) => setPreReturn(e.target.value)}
+        />
+
+        <input placeholder="Post-Retirement Return (%)"
+          value={postReturn}
+          onChange={(e) => setPostReturn(e.target.value)}
+        />
+
+        <input placeholder="Years After Retirement"
+          value={years}
+          onChange={(e) => setYears(e.target.value)}
+        />
+
+        <button onClick={calculateRetirement}>
           Calculate
         </button>
 
       </div>
+
+      {result && (
+        <div style={{ marginTop: "30px" }}>
+
+          <h2>Results</h2>
+
+          <p>
+            Future Annual Expense:
+            <b> ₹ {Math.round(result.futureExpense)}</b>
+          </p>
+
+          <p>
+            Required Retirement Corpus:
+            <b> ₹ {Math.round(result.corpus)}</b>
+          </p>
+
+          <p>
+            Required Monthly SIP:
+            <b> ₹ {Math.round(result.monthlySIP)}</b>
+          </p>
+
+        </div>
+      )}
+
     </main>
   );
 }
