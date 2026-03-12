@@ -138,3 +138,15 @@ export default function Home() {
     </div>
   );
 }
+{/* Disclaimer */}
+<div style={{marginTop:"40px", fontSize:"12px", color:"#666"}}>
+<p>
+This tool has been designed for information purposes only.
+Actual results may vary depending on various factors involved in capital market.
+</p>
+
+<p>
+Investor should not consider above as a recommendation for any schemes of HDFC Mutual Fund.
+Past performance may or may not be sustained in future and is not a guarantee of any future returns.
+</p>
+</div>
