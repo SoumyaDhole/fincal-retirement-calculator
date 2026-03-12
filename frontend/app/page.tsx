@@ -1,168 +1,140 @@
 "use client";
 
 import { useState } from "react";
+import RetirementChart from "../components/RetirementChart";
 
 export default function Home() {
+
   const [form, setForm] = useState({
     currentAge: "",
     retirementAge: "",
-    currentExpense: "",
+    lifeExpectancy: "",
+    monthlyExpense: "",
     inflationRate: "",
     preReturn: "",
-    postReturn: "",
-    retirementYears: "",
+    postReturn: ""
   });
 
   const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e: any) => {
+    setForm({
+      ...form,
+      [e.target.name]: Number(e.target.value)
+    });
   };
 
   const calculateRetirement = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("http://localhost:5000/retirement", {
+
+    const res = await fetch(
+      "http://localhost:5000/api/retirement/calculate",
+      {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          currentAge: Number(form.currentAge),
-          retirementAge: Number(form.retirementAge),
-          currentExpense: Number(form.currentExpense),
-          inflationRate: Number(form.inflationRate),
-          preReturn: Number(form.preReturn),
-          postReturn: Number(form.postReturn),
-          retirementYears: Number(form.retirementYears),
-        }),
-      });
+        body: JSON.stringify(form)
+      }
+    );
 
-      const data = await response.json();
-      setResult(data);
-    } catch (error) {
-      console.error("Calculation failed:", error);
-    } finally {
-      setLoading(false);
-    }
+    const data = await res.json();
+
+    setResult(data.data);
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6 md:p-10">
-      <div className="mx-auto max-w-5xl">
-        <h1 className="mb-2 text-3xl font-bold text-gray-900">
-          Retirement Planning Calculator
-        </h1>
-        <p className="mb-8 text-gray-600">
-          Estimate future expenses, required retirement corpus, and monthly SIP.
-        </p>
+    <div style={{ padding: 40 }}>
 
-        <div className="grid gap-8 md:grid-cols-2">
-          <div className="rounded-2xl bg-white p-6 shadow-md">
-            <h2 className="mb-4 text-xl font-semibold">Enter Details</h2>
+      <h1>FinCal Retirement Calculator</h1>
 
-            <div className="grid gap-4">
-              <input
-                type="number"
-                name="currentAge"
-                placeholder="Current Age"
-                value={form.currentAge}
-                onChange={handleChange}
-                className="rounded-lg border p-3"
-              />
-              <input
-                type="number"
-                name="retirementAge"
-                placeholder="Retirement Age"
-                value={form.retirementAge}
-                onChange={handleChange}
-                className="rounded-lg border p-3"
-              />
-              <input
-                type="number"
-                name="currentExpense"
-                placeholder="Current Annual Expenses"
-                value={form.currentExpense}
-                onChange={handleChange}
-                className="rounded-lg border p-3"
-              />
-              <input
-                type="number"
-                name="inflationRate"
-                placeholder="Inflation Rate (%)"
-                value={form.inflationRate}
-                onChange={handleChange}
-                className="rounded-lg border p-3"
-              />
-              <input
-                type="number"
-                name="preReturn"
-                placeholder="Pre-Retirement Return (%)"
-                value={form.preReturn}
-                onChange={handleChange}
-                className="rounded-lg border p-3"
-              />
-              <input
-                type="number"
-                name="postReturn"
-                placeholder="Post-Retirement Return (%)"
-                value={form.postReturn}
-                onChange={handleChange}
-                className="rounded-lg border p-3"
-              />
-              <input
-                type="number"
-                name="retirementYears"
-                placeholder="Years After Retirement"
-                value={form.retirementYears}
-                onChange={handleChange}
-                className="rounded-lg border p-3"
-              />
+      <input
+        name="currentAge"
+        placeholder="Current Age"
+        onChange={handleChange}
+      />
+      <br /><br />
 
-              <button
-                onClick={calculateRetirement}
-                className="rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
-              >
-                {loading ? "Calculating..." : "Calculate"}
-              </button>
-            </div>
-          </div>
+      <input
+        name="retirementAge"
+        placeholder="Retirement Age"
+        onChange={handleChange}
+      />
+      <br /><br />
 
-          <div className="rounded-2xl bg-white p-6 shadow-md">
-            <h2 className="mb-4 text-xl font-semibold">Results</h2>
+      <input
+        name="lifeExpectancy"
+        placeholder="Life Expectancy (e.g. 90)"
+        onChange={handleChange}
+      />
+      <br /><br />
 
-            {result ? (
-              <div className="grid gap-4">
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-sm text-gray-500">Future Annual Expense</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    ₹ {Math.round(result.futureExpense).toLocaleString("en-IN")}
-                  </p>
-                </div>
+      <input
+        name="monthlyExpense"
+        placeholder="Monthly Expense"
+        onChange={handleChange}
+      />
+      <br /><br />
 
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-sm text-gray-500">Required Retirement Corpus</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    ₹ {Math.round(result.corpus).toLocaleString("en-IN")}
-                  </p>
-                </div>
+      <input
+        name="inflationRate"
+        placeholder="Inflation Rate (0.06)"
+        onChange={handleChange}
+      />
+      <br /><br />
 
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-sm text-gray-500">Required Monthly SIP</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    ₹ {Math.round(result.monthlySIP).toLocaleString("en-IN")}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-500">
-                Enter your details and click calculate to see retirement estimates.
-              </p>
-            )}
-          </div>
+      <input
+        name="preReturn"
+        placeholder="Pre-Retirement Return (0.10)"
+        onChange={handleChange}
+      />
+      <br /><br />
+
+      <input
+        name="postReturn"
+        placeholder="Post-Retirement Return (0.07)"
+        onChange={handleChange}
+      />
+      <br /><br />
+
+      <button onClick={calculateRetirement}>
+        Calculate Retirement
+      </button>
+
+      {result && (
+        <div style={{ marginTop: 30 }}>
+
+          <h2>Results</h2>
+
+          <p>
+            Future Monthly Expense: ₹
+            {Math.round(result.futureMonthlyExpense)}
+          </p>
+
+          <p>
+            Required Corpus: ₹
+            {Math.round(result.requiredCorpus)}
+          </p>
+
+          <p>
+            Monthly SIP Needed: ₹
+            {Math.round(result.monthlySIP)}
+          </p>
+
+          <p>
+            Corpus Lasts: {result.yearsCorpusLasts} years
+          </p>
+
+          <p>
+            Retirement Success Probability: 
+            {Math.round(result.successProbability)}%
+          </p>
+
+          {/* Timeline Chart */}
+          <RetirementChart timeline={result.timeline} />
+
         </div>
-      </div>
-    </main>
+      )}
+
+    </div>
   );
 }
