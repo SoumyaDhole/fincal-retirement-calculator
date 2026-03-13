@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
+/* Hackathon Brand Colors */
 :root {
-  --background: #ffffff;
+  --primary-blue: #224c87;
+  --accent-red: #da3832;
+  --neutral-grey: #919090;
+
+  --background: #f7f9fc;
   --foreground: #171717;
 }
 
+/* Tailwind theme variables */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: var(--primary-blue);
+  --color-accent: var(--accent-red);
+  --color-grey: var(--neutral-grey);
+
+  --font-sans: Arial, Verdana, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Arial, Verdana, sans-serif;
+}
+
+/* Buttons */
+button {
+  background-color: var(--primary-blue);
+  color: white;
+  padding: 10px 18px;
+  border-radius: 6px;
+  border: none;
+  transition: 0.2s;
+}
+
+button:hover {
+  background-color: #1b3c6e;
+}
+
+/* Inputs */
+input {
+  padding: 10px;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  width: 260px;
+}
+
+/* Card Styling */
+.card {
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #e5e5e5;
+  background: white;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.05);
 }
