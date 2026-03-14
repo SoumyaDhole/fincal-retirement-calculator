@@ -1,25 +1,41 @@
+require('dotenv').config();
 const express = require("express");
-const cors = require("cors");
-
+const cors    = require("cors");
 const retirementRoutes = require("./routes/retirementRoutes");
 
 const app = express();
-
-/* Middleware */
 app.use(cors());
 app.use(express.json());
 
-/* Test route */
-app.get("/", (req, res) => {
-  res.send("FinCal Backend Running");
-});
-
-/* Retirement Calculator API Route */
+app.get("/", (req, res) => res.send("FinCal Backend Running"));
 app.use("/api/retirement", retirementRoutes);
 
-/* Start server */
-const PORT = 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// ─── Claude API Proxy ─────────────────────────────────────────────
+// Routes /api/chat to Anthropic with server-side API key.
+// Fixes 404 error — this route was missing from the original server.js.
+app.post("/api/chat", async (req, res) => {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "ANTHROPIC_API_KEY not set in backend .env file" });
+    }
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type":      "application/json",
+        "x-api-key":         apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data?.error?.message || "Anthropic API error" });
+    }
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Proxy error" });
+  }
 });
+
+app.listen(5000, () => console.log("Server running on port 5000"));

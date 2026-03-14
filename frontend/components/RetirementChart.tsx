@@ -164,36 +164,39 @@ function MonteCarloFanChart({
     const p75     = fan.map(d => d.p75);
     const p95     = fan.map(d => d.p95);
 
-    // Retirement survival at end
-    const retIdx         = yearsToRetirement - 1;
-    const retirementBand = fan[retIdx];
+    // ── BUG FIX: The fan array is 1-indexed (year 1 = index 0).
+    //    yearsToRetirement=30 means retirement happens after year 30,
+    //    which is index 29 (0-based). Chart.js x-axis uses 0-based indices
+    //    matching the labels array, so we use (yearsToRetirement - 1).
+    const retirementLineIndex = yearsToRetirement - 1;
+
+    // Guard: clamp to valid range
+    const safeRetIdx = Math.max(0, Math.min(retirementLineIndex, fan.length - 1));
+    const retirementBand = fan[safeRetIdx] ?? fan[fan.length - 1];
 
     const data = {
         labels,
         datasets: [
-            // Outer band top (p95)
             {
                 label:           "95th percentile",
                 data:            p95,
                 borderColor:     "transparent",
                 backgroundColor: "rgba(34,76,135,0.06)",
-                fill:            "+3",   // fill down to p5
+                fill:            "+3",
                 tension:         0.4,
                 pointRadius:     0,
                 borderWidth:     0
             },
-            // Inner band top (p75)
             {
                 label:           "75th percentile",
                 data:            p75,
                 borderColor:     "transparent",
                 backgroundColor: "rgba(34,76,135,0.10)",
-                fill:            "+1",   // fill down to p25
+                fill:            "+1",
                 tension:         0.4,
                 pointRadius:     0,
                 borderWidth:     0
             },
-            // Median
             {
                 label:       "Median (50th percentile)",
                 data:        p50,
@@ -204,7 +207,6 @@ function MonteCarloFanChart({
                 pointRadius: 0,
                 borderWidth: 2.5
             },
-            // Inner band bottom (p25)
             {
                 label:           "25th percentile",
                 data:            p25,
@@ -215,7 +217,6 @@ function MonteCarloFanChart({
                 pointRadius:     0,
                 borderWidth:     0
             },
-            // Outer band bottom (p5)
             {
                 label:           "5th percentile",
                 data:            p5,
@@ -229,26 +230,35 @@ function MonteCarloFanChart({
         ]
     };
 
-    // Retirement vertical line plugin
+    // ── Retirement vertical line plugin ─────────────────────────────
+    // FIX: use safeRetIdx (0-based index into the labels/data arrays)
+    // so the line lands exactly on the retirement year tick.
     const retLinePlugin = {
         id: "retirementLine",
         afterDraw(chart: ChartJS) {
-            const { ctx, scales: { x, y } } = chart;
-            if (retIdx < 0 || retIdx >= fan.length) return;
-            const px = x.getPixelForValue(retIdx);
+            const { ctx, scales } = chart as any;
+            const xScale = scales["x"];
+            const yScale = scales["y"];
+            if (!xScale || !yScale) return;
+
+            // getPixelForValue with a 0-based index works correctly on
+            // CategoryScale where each label corresponds to one integer index.
+            const px = xScale.getPixelForValue(safeRetIdx);
+            if (isNaN(px)) return;
+
             ctx.save();
             ctx.setLineDash([5, 4]);
             ctx.strokeStyle = GREY;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.moveTo(px, y.top);
-            ctx.lineTo(px, y.bottom);
+            ctx.moveTo(px, yScale.top);
+            ctx.lineTo(px, yScale.bottom);
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.fillStyle = GREY;
             ctx.font = "11px Montserrat,Arial,sans-serif";
             ctx.textAlign = "center";
-            ctx.fillText("Retirement", px, y.top - 6);
+            ctx.fillText("Retirement", px, yScale.top - 6);
             ctx.restore();
         }
     };
@@ -270,8 +280,8 @@ function MonteCarloFanChart({
                 callbacks: {
                     title:  (items: any[]) => items[0].label,
                     label:  (ctx: any) => {
-                        const y     = ctx.dataIndex;
-                        const point = fan[y];
+                        const yi    = ctx.dataIndex;
+                        const point = fan[yi];
                         return [
                             ` Optimistic (95th): ${fmtINR(point.p95)}`,
                             ` Median (50th):     ${fmtINR(point.p50)}`,
@@ -301,7 +311,6 @@ function MonteCarloFanChart({
         }
     };
 
-    // Survival stat
     const survived = fan[fan.length - 1];
 
     return (
@@ -444,8 +453,8 @@ export default function RetirementChart({
     monteCarloFan,
     yearsToRetirement
 }: {
-    timeline:         any[];
-    monteCarloFan?:   any[];
+    timeline:           any[];
+    monteCarloFan?:     any[];
     yearsToRetirement?: number;
 }) {
     const [tab, setTab] = useState<"timeline" | "montecarlo">("timeline");
