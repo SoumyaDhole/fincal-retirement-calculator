@@ -26,8 +26,16 @@ export default function RetirementChatbot({ result, form }: ChatbotProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const systemPrompt = `You are FinCal Advisor by Optiwealth, a friendly educational retirement planning assistant built for FinCal at Technex'26 IIT (BHU) Varanasi, co-sponsored by HDFC Mutual Fund. Team: Optiwealth (Soumya Dhole, Shashwat Deshpande, Niraj Bhakte).
 
@@ -76,9 +84,10 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
 
     // ── Try 1: Backend proxy ──────────────────────────────────────────────
     try {
+      const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch("http://localhost:5000/api/chat", {
+      const res = await fetch(`${BACKEND}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(apiBody),
@@ -151,6 +160,40 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
       );
     });
 
+  // ── Mobile: full screen. Desktop: 384px popup ──
+  const windowStyle: React.CSSProperties = isMobile ? {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1000,
+    width: "100%",
+    height: "100%",
+    borderRadius: 0,
+    bottom: 0,
+    right: 0,
+    background: "#1a1d27",
+    boxShadow: "none",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    border: "none",
+    animation: "chatSlideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)",
+  } : {
+    position: "fixed",
+    bottom: 80,
+    right: 24,
+    zIndex: 1000,
+    width: 384,
+    height: 580,
+    background: "#1a1d27",
+    borderRadius: 18,
+    boxShadow: "0 12px 60px rgba(0,0,0,0.55)",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    border: "1px solid #2c3a5a",
+    animation: "chatSlideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)",
+  };
+
   return (
     <>
       {/* Floating button */}
@@ -167,12 +210,10 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
 
       {/* Chat window */}
       {open && (
-        <div role="dialog" aria-label="Optiwealth FinCal AI Retirement Advisor" aria-modal="true"
-          style={{ position: "fixed", bottom: 72, right: 24, zIndex: 1000, width: 384, height: 580, background: "#1a1d27", borderRadius: 18, boxShadow: "0 12px 60px rgba(0,0,0,0.55)", display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid #2c3a5a", animation: "chatSlideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)" }}
-        >
-          {/* Header — Optiwealth branding */}
+        <div role="dialog" aria-label="Optiwealth FinCal AI Retirement Advisor" aria-modal="true" style={windowStyle}>
+
+          {/* Header */}
           <div style={{ background: "linear-gradient(135deg,#224c87,#1a3a6b)", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-            {/* Inline logo mark */}
             <svg width="38" height="38" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 9, flexShrink: 0 }} aria-hidden="true">
               <rect width="120" height="120" rx="24" fill="rgba(255,255,255,0.15)"/>
               <rect x="22" y="62" width="16" height="34" rx="4" fill="rgba(255,255,255,0.35)"/>
@@ -191,7 +232,7 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
               </div>
             </div>
             <button onClick={() => setOpen(false)} aria-label="Close chat"
-              style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", borderRadius: 8, width: 30, height: 30, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", borderRadius: 8, width: 34, height: 34, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           </div>
 
           {/* Messages */}
@@ -199,7 +240,6 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
             {messages.map((m, i) => (
               <div key={i} style={{ display: "flex", gap: 8, flexDirection: m.role === "user" ? "row-reverse" : "row", alignItems: "flex-end" }}>
                 {m.role === "assistant" && (
-                  // Small logo avatar on assistant messages
                   <svg width="28" height="28" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: "50%", flexShrink: 0 }} aria-hidden="true">
                     <rect width="120" height="120" rx="60" fill="url(#grad)"/>
                     <defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#224c87"/><stop offset="100%" stopColor="#1a3a6b"/></linearGradient></defs>
@@ -209,7 +249,6 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
                     <polyline points="68,34 75,24 82,34" fill="none" stroke="#da3832" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 )}
-                {/* FIX: Georgia removed → Arial */}
                 <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role === "user" ? "linear-gradient(135deg,#224c87,#1a3a6b)" : "#1e2235", color: m.role === "user" ? "#fff" : "#e2e8f0", fontSize: 13, lineHeight: 1.6, border: m.role === "assistant" ? "1px solid #2c3a5a" : "none", fontFamily: "Arial,sans-serif" }}>
                   {renderMsg(m.content)}
                 </div>
@@ -264,7 +303,6 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
               onFocusCapture={e => e.currentTarget.style.borderColor = "#4f7ec4"}
               onBlurCapture={e => e.currentTarget.style.borderColor = "#2c3a5a"}
             >
-              {/* FIX: Georgia removed → Arial */}
               <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
                 placeholder="Ask about your retirement plan…"

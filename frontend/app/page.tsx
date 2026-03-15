@@ -64,7 +64,6 @@ const FIELD_EDU:Record<string,{why:string;eg:string}> = {
   lumpSumWithdrawal:{why:"A one-time amount you want to withdraw on retirement day — for a house purchase, child's wedding, travel etc.",eg:"If corpus is Rs.13 Cr and you withdraw Rs.3 Cr, remaining Rs.10 Cr funds your monthly expenses."},
 };
 
-// ─── Tour steps — split into pre-results and post-results ─────
 const TOUR_ALL = [
   {anchor:"darkmode-btn", pos:"bl", icon:"🌓", title:"Light & Dark Mode",     desc:"Toggle the ☀️/🌙 switch in the top-right corner to switch themes anytime. Dark mode looks great for presentations!", requiresResults:false},
   {anchor:"tour-btn",     pos:"bl", icon:"❓", title:"Guided Tour Button",     desc:"Click this ❓ button anytime to restart this tour and revisit how each feature works.", requiresResults:false},
@@ -613,7 +612,6 @@ export default function Home() {
     setError("");setLoading(true);
     try{
       const payload={currentAge:Number(form.currentAge),retirementAge:Number(form.retirementAge),lifeExpectancy:Number(form.lifeExpectancy),monthlyExpense:Number(form.monthlyExpense),inflationRate:Number(form.inflationRate)/100,preReturn:Number(form.preReturn)/100,postReturn:Number(form.postReturn)/100,stepUpRate:Number(form.stepUpRate)/100,existingCorpus:Number(form.existingCorpus),lumpSumWithdrawal:Number(form.lumpSumWithdrawal)};
-      // ── FIXED: uses BACKEND_URL env var, falls back to localhost for local dev ──
       const res=await fetch(`${BACKEND_URL}/api/retirement/calculate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       if(!res.ok)throw new Error("Server error");
       const data=await res.json();
@@ -657,13 +655,46 @@ export default function Home() {
         input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:${t.accent};border:3px solid ${t.surfaceCard};box-shadow:0 2px 8px rgba(34,76,135,0.4);cursor:pointer;}
         input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:${t.accent};border:3px solid ${t.surfaceCard};cursor:pointer;}
         input[type=range]{-webkit-appearance:none;background:transparent;}
+
+        /* ── MOBILE NAV ── */
+        @media(max-width:640px){
+          .nav-inner{flex-wrap:wrap;padding:8px 12px!important;gap:0!important;}
+          .nav-brand{padding:6px 0!important;width:100%;margin-right:0!important;}
+          .nav-tabs{width:100%;justify-content:flex-start;border-top:1px solid ${t.border};padding-top:4px;overflow-x:auto;}
+          .nav-tabs button{padding:8px 10px!important;font-size:12px!important;}
+          .nav-actions{position:absolute;top:10px;right:12px;display:flex;gap:6px;align-items:center;}
+        }
+
+        /* ── MOBILE RESULT CARDS ── */
+        @media(max-width:640px){
+          .result-cards-row{grid-template-columns:1fr 1fr!important;}
+        }
+        @media(max-width:380px){
+          .result-cards-row{grid-template-columns:1fr!important;}
+        }
+
+        /* ── MOBILE REGRET GRID ── */
+        @media(max-width:640px){
+          .regret-grid{grid-template-columns:1fr 1fr!important;}
+        }
+
+        /* ── MOBILE BUCKETS ── */
+        @media(max-width:640px){
+          .buckets-grid{grid-template-columns:1fr!important;}
+        }
+
+        /* ── MOBILE LUMPSUM ── */
+        @media(max-width:640px){
+          .lumpsum-grid{grid-template-columns:1fr!important;}
+        }
       `}</style>
 
       {/* Nav */}
       <nav aria-label="Main navigation" style={{borderBottom:`1px solid ${t.border}`,background:t.navBg,position:"sticky",top:0,zIndex:100,boxShadow:t.navShadow,transition:"background 0.25s"}}>
-        <div style={{maxWidth:960,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",gap:4}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0",marginRight:"auto"}}>
-            <svg width="36" height="36" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{borderRadius:9,flexShrink:0}} aria-hidden="true">
+        <div className="nav-inner" style={{maxWidth:960,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",gap:4,position:"relative" as const}}>
+          {/* Brand */}
+          <div className="nav-brand" style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0",marginRight:"auto"}}>
+            <svg width="34" height="34" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{borderRadius:9,flexShrink:0}} aria-hidden="true">
               <rect width="120" height="120" rx="24" fill="#224c87"/>
               <rect x="22" y="62" width="16" height="34" rx="4" fill="rgba(255,255,255,0.35)"/>
               <rect x="44" y="44" width="16" height="52" rx="4" fill="rgba(255,255,255,0.6)"/>
@@ -679,31 +710,37 @@ export default function Home() {
               <div style={{fontSize:11,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"0.3px"}}>FinCal · Technex '26</div>
             </div>
           </div>
-          <div role="tablist" aria-label="Page sections" style={{display:"flex"}}>
+
+          {/* Tabs */}
+          <div className="nav-tabs" role="tablist" aria-label="Page sections" style={{display:"flex"}}>
             {([{key:"calculator",label:"Calculator",icon:"🧮"},{key:"comparison",label:"Compare",icon:"⚖️",id:"compare-tab"},{key:"learn",label:"Learn",icon:"📚",id:"learn-tab"}] as {key:NavTab;label:string;icon:string;id?:string}[]).map(tb=>(
               <button key={tb.key} role="tab" aria-selected={activeTab===tb.key} onClick={()=>setActiveTab(tb.key)} id={tb.id}
-                style={{padding:"13px 12px",fontSize:13,fontWeight:activeTab===tb.key?700:500,color:activeTab===tb.key?t.accent:t.textMuted,background:"none",border:"none",borderBottom:activeTab===tb.key?`3px solid ${t.accent}`:"3px solid transparent",cursor:"pointer",borderRadius:0,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:-1,transition:"color 0.15s,border-color 0.15s",display:"flex",alignItems:"center",gap:5}}>
+                style={{padding:"13px 12px",fontSize:13,fontWeight:activeTab===tb.key?700:500,color:activeTab===tb.key?t.accent:t.textMuted,background:"none",border:"none",borderBottom:activeTab===tb.key?`3px solid ${t.accent}`:"3px solid transparent",cursor:"pointer",borderRadius:0,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:-1,transition:"color 0.15s,border-color 0.15s",display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap" as const}}>
                 <span aria-hidden="true">{tb.icon}</span>{tb.label}
               </button>
             ))}
           </div>
-          <button id="tour-btn" onClick={()=>setTourStep(0)} aria-label="Start guided tour" title="Start tour"
-            style={{width:30,height:30,borderRadius:8,background:t.surfaceAlt,border:`1px solid ${t.border}`,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>❓</button>
-          <button id="darkmode-btn" onClick={()=>setDarkMode(v=>!v)} aria-label={darkMode?"Light mode":"Dark mode"}
-            style={{width:46,height:26,borderRadius:13,background:darkMode?t.accent:"#e5e7eb",border:"none",cursor:"pointer",position:"relative" as const,transition:"background 0.2s",flexShrink:0}}>
-            <span style={{position:"absolute",top:3,left:darkMode?22:3,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,0.25)"}}>
-              {darkMode?"🌙":"☀️"}
-            </span>
-          </button>
+
+          {/* Actions */}
+          <div className="nav-actions" style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+            <button id="tour-btn" onClick={()=>setTourStep(0)} aria-label="Start guided tour" title="Start tour"
+              style={{width:30,height:30,borderRadius:8,background:t.surfaceAlt,border:`1px solid ${t.border}`,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>❓</button>
+            <button id="darkmode-btn" onClick={()=>setDarkMode(v=>!v)} aria-label={darkMode?"Light mode":"Dark mode"}
+              style={{width:46,height:26,borderRadius:13,background:darkMode?t.accent:"#e5e7eb",border:"none",cursor:"pointer",position:"relative" as const,transition:"background 0.2s",flexShrink:0}}>
+              <span style={{position:"absolute",top:3,left:darkMode?22:3,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,0.25)"}}>
+                {darkMode?"🌙":"☀️"}
+              </span>
+            </button>
+          </div>
         </div>
       </nav>
 
-      <main id="main-content" style={{maxWidth:960,margin:"0 auto",padding:"28px 20px 100px"}}>
+      <main id="main-content" style={{maxWidth:960,margin:"0 auto",padding:"28px 16px 100px"}}>
 
         {activeTab==="calculator"&&(
           <>
             <header style={{marginBottom:28}}>
-              <h1 style={{fontSize:26,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"-0.5px",margin:0}}>Retirement Planning Calculator</h1>
+              <h1 style={{fontSize:24,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"-0.5px",margin:0}}>Retirement Planning Calculator</h1>
               <p style={{fontSize:14,color:t.textSub,marginTop:7,lineHeight:1.65,fontFamily:"Arial,sans-serif",maxWidth:680}}>Estimate how much you need to save for a comfortable retirement — with inflation buckets, 1,000 Monte Carlo simulations, and personalised SIP recommendations.</p>
               <p style={{fontSize:13,color:t.textMuted,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif"}}>ⓘ All values are <strong>illustrative estimates</strong> for educational purposes only. Not investment advice.</p>
             </header>
@@ -713,9 +750,9 @@ export default function Home() {
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                 {PERSONAS.map(p=>(
                   <button key={p.label} onClick={()=>applyPersona(p)} aria-pressed={persona===p.label}
-                    style={{background:persona===p.label?t.accent:t.surfaceCard,color:persona===p.label?"#fff":t.text,border:persona===p.label?`2px solid ${t.accent}`:`1.5px solid ${t.border}`,borderRadius:10,padding:"12px 14px",fontWeight:600,cursor:"pointer",fontSize:13,textAlign:"left" as const,transition:"all 0.15s",fontFamily:"Montserrat,Arial,sans-serif",display:"flex",alignItems:"center",gap:10,width:"100%"}}>
-                    <span style={{fontSize:20,flexShrink:0}}>{p.icon}</span>
-                    <span><span style={{display:"block",fontWeight:700}}>{p.label}</span><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>{p.desc}</span></span>
+                    style={{background:persona===p.label?t.accent:t.surfaceCard,color:persona===p.label?"#fff":t.text,border:persona===p.label?`2px solid ${t.accent}`:`1.5px solid ${t.border}`,borderRadius:10,padding:"10px 8px",fontWeight:600,cursor:"pointer",fontSize:12,textAlign:"left" as const,transition:"all 0.15s",fontFamily:"Montserrat,Arial,sans-serif",display:"flex",alignItems:"center",gap:8,width:"100%"}}>
+                    <span style={{fontSize:18,flexShrink:0}}>{p.icon}</span>
+                    <span><span style={{display:"block",fontWeight:700}}>{p.label}</span><span style={{fontSize:11,fontWeight:400,opacity:0.75}}>{p.desc}</span></span>
                   </button>
                 ))}
               </div>
@@ -726,15 +763,15 @@ export default function Home() {
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                 {(Object.entries(SCENARIOS) as [keyof typeof SCENARIOS,typeof SCENARIOS[keyof typeof SCENARIOS]][]).map(([key,s])=>(
                   <button key={key} onClick={()=>applyScenario(key)} aria-pressed={scenario===key}
-                    style={{background:scenario===key?t.accent:t.surfaceCard,color:scenario===key?"#fff":t.text,border:scenario===key?`2px solid ${t.accent}`:`1.5px solid ${t.border}`,borderRadius:10,padding:"12px 14px",fontWeight:scenario===key?700:500,cursor:"pointer",fontSize:13,fontFamily:"Montserrat,Arial,sans-serif",transition:"all 0.15s",textAlign:"left" as const,display:"flex",alignItems:"center",gap:10,width:"100%"}}>
-                    <span style={{fontSize:20,flexShrink:0}}>{s.icon}</span>
-                    <span><span style={{display:"block",fontWeight:700}}>{s.label}</span><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>Pre: {s.preReturn}% / Post: {s.postReturn}% · {s.desc}</span></span>
+                    style={{background:scenario===key?t.accent:t.surfaceCard,color:scenario===key?"#fff":t.text,border:scenario===key?`2px solid ${t.accent}`:`1.5px solid ${t.border}`,borderRadius:10,padding:"10px 8px",fontWeight:scenario===key?700:500,cursor:"pointer",fontSize:12,fontFamily:"Montserrat,Arial,sans-serif",transition:"all 0.15s",textAlign:"left" as const,display:"flex",alignItems:"center",gap:8,width:"100%"}}>
+                    <span style={{fontSize:18,flexShrink:0}}>{s.icon}</span>
+                    <span><span style={{display:"block",fontWeight:700}}>{s.label}</span><span style={{fontSize:11,fontWeight:400,opacity:0.75}}>Pre: {s.preReturn}% · {s.desc}</span></span>
                   </button>
                 ))}
               </div>
             </section>
 
-            <section aria-labelledby="form-h" id="form-sec" style={{background:t.surfaceCard,borderRadius:14,padding:"24px 28px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:24}}>
+            <section aria-labelledby="form-h" id="form-sec" style={{background:t.surfaceCard,borderRadius:14,padding:"20px 16px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:24}}>
               <h2 id="form-h" style={{fontSize:16,fontWeight:700,color:t.accent,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Your details</h2>
               <p style={{fontSize:13,color:t.textMuted,marginBottom:20,fontFamily:"Montserrat,Arial,sans-serif"}}>Click <strong style={{color:t.accent}}>?</strong> next to any field to learn why it matters.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"18px 26px"}}>
@@ -758,7 +795,7 @@ export default function Home() {
 
               {error&&<p role="alert" style={{color:t.red,fontSize:13,marginTop:14,padding:"10px 13px",background:`${t.red}15`,borderRadius:8,border:`1px solid ${t.red}40`}}>⚠ {error}</p>}
               <button onClick={calculate} disabled={loading} aria-busy={loading} id="calc-btn"
-                style={{marginTop:22,background:loading?"#64748b":t.accentGrad,color:"#fff",padding:"13px 40px",borderRadius:10,border:"none",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"Montserrat,Arial,sans-serif",boxShadow:loading?"none":`0 4px 16px ${t.accent}45`,transition:"all 0.15s"}}>
+                style={{marginTop:22,background:loading?"#64748b":t.accentGrad,color:"#fff",padding:"13px 40px",borderRadius:10,border:"none",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"Montserrat,Arial,sans-serif",boxShadow:loading?"none":`0 4px 16px ${t.accent}45`,transition:"all 0.15s",width:"100%"}}>
                 {loading?"⏳ Calculating…":"Calculate my retirement plan →"}
               </button>
             </section>
@@ -789,17 +826,12 @@ export default function Home() {
                     {icon:"📆",title:"Corpus duration",             value:`${result.yearsCorpusLasts} yrs`,           sub:"Estimated years it lasts",highlight:false,color:undefined},
                     {icon:"🎲",title:"Success probability",         value:`${Math.round(result.successProbability)}%`,sub:"1,000 Monte Carlo sims",highlight:false,color:risk!.color},
                   ];
-                  const rows:typeof cards[] = [];
-                  for(let i=0;i<cards.length;i+=3) rows.push(cards.slice(i,i+3));
+                  // Always 2 columns on mobile, 3 on desktop
                   return (
-                    <div style={{display:"flex",flexDirection:"column" as const,gap:12,marginBottom:24}}>
-                      {rows.map((row,ri)=>(
-                        <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${row.length},1fr)`,gap:12}}>
-                          {row.map((card,i)=>(
-                            <div key={i} className="result-anim" style={{animationDelay:`${(ri*3+i)*0.05+0.05}s`}}>
-                              <ResultCard title={card.title} value={card.value} sub={card.sub} highlight={card.highlight} color={card.color} icon={card.icon} t={t}/>
-                            </div>
-                          ))}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:12,marginBottom:24}} className="result-cards-row">
+                      {cards.map((card,i)=>(
+                        <div key={i} className="result-anim" style={{animationDelay:`${i*0.05+0.05}s`}}>
+                          <ResultCard title={card.title} value={card.value} sub={card.sub} highlight={card.highlight} color={card.color} icon={card.icon} t={t}/>
                         </div>
                       ))}
                     </div>
@@ -818,7 +850,7 @@ export default function Home() {
                   <section aria-labelledby="lumpsum-h" style={{background:t.surfaceCard,borderRadius:14,padding:"20px 24px",border:`2px solid ${t.yellow}40`,boxShadow:t.cardShadow,marginBottom:24}}>
                     <h3 id="lumpsum-h" style={{fontSize:15,fontWeight:800,color:t.yellow,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>🏠 Lumpsum Withdrawal Plan</h3>
                     <p style={{fontSize:13,color:t.textMuted,marginBottom:16,fontFamily:"Montserrat,Arial,sans-serif"}}>On retirement day you withdraw a lump sum first. The remaining corpus then funds your monthly expenses.</p>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
+                    <div className="lumpsum-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
                       <div style={{background:t.surfaceAlt,borderRadius:10,padding:"14px 16px",border:`1px solid ${t.border}`}}>
                         <p style={{fontSize:11,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:4}}>Total corpus built</p>
                         <p style={{fontSize:20,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.requiredCorpus)}</p>
@@ -858,7 +890,7 @@ export default function Home() {
                 <section aria-labelledby="buckets-h" style={{marginBottom:24}}>
                   <h3 id="buckets-h" style={{fontSize:15,fontWeight:700,color:t.accent,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>Expense breakdown at retirement</h3>
                   <p style={{fontSize:13,color:t.textSub,marginBottom:12,fontFamily:"Montserrat,Arial,sans-serif"}}>Different expense types inflate at different rates. Medical costs inflate fastest.</p>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+                  <div className="buckets-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
                     <BucketCard label="General living"     value={fmtINR(result.expenseBuckets.general)}   rate="6%" color="#4f7ec4" pct="60% of expenses" icon="🛒" t={t}/>
                     <BucketCard label="Medical & health"   value={fmtINR(result.expenseBuckets.medical)}   rate="8%" color={t.red}   pct="25% of expenses" icon="🏥" t={t}/>
                     <BucketCard label="Lifestyle & travel" value={fmtINR(result.expenseBuckets.lifestyle)} rate="4%" color={t.green} pct="15% of expenses" icon="✈️" t={t}/>
@@ -878,7 +910,7 @@ export default function Home() {
                 <section aria-labelledby="regret-h" style={{padding:"20px 24px",background:`${t.red}10`,borderRadius:14,border:`1.5px solid ${t.red}35`,marginBottom:24}}>
                   <h3 id="regret-h" style={{fontSize:15,fontWeight:700,color:t.red,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>⏰ Cost of waiting {result.regret.delayYears} years</h3>
                   <p style={{fontSize:13,color:t.textMuted,marginBottom:14,fontFamily:"Montserrat,Arial,sans-serif"}}>What if you start {result.regret.delayYears} years from now instead of today?</p>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+                  <div className="regret-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
                     {[
                       {label:"Start today",            value:fmtINR(result.regret.sipIfStartNow),   color:t.green,suffix:"/mo"},
                       {label:`Start in ${result.regret.delayYears} years`,value:fmtINR(result.regret.sipIfDelayed), color:t.red,  suffix:"/mo"},
@@ -945,7 +977,7 @@ export default function Home() {
 
       {result&&activeTab==="calculator"&&<RetirementChatbot result={result} form={form}/>}
 
-      <div role="contentinfo" aria-label="Legal disclaimer" style={{position:"fixed" as const,bottom:0,left:0,right:0,background:t.disclaimerBg,borderTop:`1px solid ${t.border}`,padding:"8px 24px",fontSize:12,color:t.textSub,zIndex:998,lineHeight:1.7,fontFamily:"Arial,sans-serif",transition:"background 0.25s"}}>
+      <div role="contentinfo" aria-label="Legal disclaimer" style={{position:"fixed" as const,bottom:0,left:0,right:0,background:t.disclaimerBg,borderTop:`1px solid ${t.border}`,padding:"8px 16px",fontSize:12,color:t.textSub,zIndex:998,lineHeight:1.7,fontFamily:"Arial,sans-serif",transition:"background 0.25s"}}>
         This tool has been designed for information purposes only. Actual results may vary depending on various factors involved in capital market. Investor should not consider above as a recommendation for any schemes of HDFC Mutual Fund. Past performance may or may not be sustained in future and is not a guarantee of any future returns.
       </div>
     </>
