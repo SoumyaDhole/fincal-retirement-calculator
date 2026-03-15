@@ -33,13 +33,13 @@ type Theme = typeof LIGHT;
 interface FormState {
   currentAge:string; retirementAge:string; lifeExpectancy:string;
   monthlyExpense:string; inflationRate:string; preReturn:string;
-  postReturn:string; stepUpRate:string; existingCorpus:string;
+  postReturn:string; stepUpRate:string; existingCorpus:string; lumpSumWithdrawal:string;
 }
 
 const PERSONAS = [
-  {label:"Fresh Graduate",icon:"🎓",desc:"Age 22 · ₹30k/mo",values:{currentAge:"22",retirementAge:"60",lifeExpectancy:"85",monthlyExpense:"30000",inflationRate:"6",preReturn:"12",postReturn:"7",stepUpRate:"10",existingCorpus:"0"}},
-  {label:"Mid-career",    icon:"💼",desc:"Age 35 · ₹80k/mo",values:{currentAge:"35",retirementAge:"60",lifeExpectancy:"85",monthlyExpense:"80000",inflationRate:"6",preReturn:"10",postReturn:"7",stepUpRate:"8", existingCorpus:"500000"}},
-  {label:"Late Starter",  icon:"⏰",desc:"Age 45 · ₹1.5L/mo",values:{currentAge:"45",retirementAge:"62",lifeExpectancy:"85",monthlyExpense:"150000",inflationRate:"6",preReturn:"9",postReturn:"7",stepUpRate:"5",existingCorpus:"2000000"}},
+  {label:"Fresh Graduate",icon:"🎓",desc:"Age 22 · ₹30k/mo",values:{currentAge:"22",retirementAge:"60",lifeExpectancy:"85",monthlyExpense:"30000",inflationRate:"6",preReturn:"12",postReturn:"7",stepUpRate:"10",existingCorpus:"0",lumpSumWithdrawal:"0"}},
+  {label:"Mid-career",    icon:"💼",desc:"Age 35 · ₹80k/mo",values:{currentAge:"35",retirementAge:"60",lifeExpectancy:"85",monthlyExpense:"80000",inflationRate:"6",preReturn:"10",postReturn:"7",stepUpRate:"8", existingCorpus:"500000",lumpSumWithdrawal:"0"}},
+  {label:"Late Starter",  icon:"⏰",desc:"Age 45 · ₹1.5L/mo",values:{currentAge:"45",retirementAge:"62",lifeExpectancy:"85",monthlyExpense:"150000",inflationRate:"6",preReturn:"9",postReturn:"7",stepUpRate:"5",existingCorpus:"2000000",lumpSumWithdrawal:"0"}},
 ] as const;
 
 const SCENARIOS = {
@@ -58,6 +58,7 @@ const FIELD_EDU:Record<string,{why:string;eg:string}> = {
   preReturn:     {why:"Return on your investments during working years.",eg:"Large-cap equity historically returned 10–14% over 10+ years."},
   postReturn:    {why:"Post-retirement investments are safer, lower returns.",eg:"Debt/balanced funds typically return 6–8%."},
   stepUpRate:    {why:"Raising SIP by 10–15%/year cuts starting SIP dramatically.",eg:"10% step-up reduces starting SIP by ~35% vs flat SIP."},
+  lumpSumWithdrawal:{why:"A one-time amount you want to withdraw on retirement day — for a house purchase, child's wedding, travel etc.",eg:"If corpus is Rs.13 Cr and you withdraw Rs.3 Cr, remaining Rs.10 Cr funds your monthly expenses."},
 };
 
 // ─── Tour steps — split into pre-results and post-results ─────
@@ -360,56 +361,154 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
       const jsPDFModule=await import("jspdf");
       const jsPDF=jsPDFModule.default;
       const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
-      const W=210;
-      const B:[number,number,number]=[34,76,135],R:[number,number,number]=[218,56,50],G:[number,number,number]=[100,116,139];
-      const W3:[number,number,number]=[255,255,255],BG:[number,number,number]=[245,248,253],DK:[number,number,number]=[17,24,39];
+      const W=210,M=14,PH=297; // page width, margin, page height
+      const B:[number,number,number]=[34,76,135];
+      const R:[number,number,number]=[218,56,50];
+      const GR:[number,number,number]=[42,120,50];
+      const SL:[number,number,number]=[100,116,139];
+      const W3:[number,number,number]=[255,255,255];
+      const BG:[number,number,number]=[245,248,253];
+      const DK:[number,number,number]=[17,24,39];
+      const rs=(s:string)=>s.replace(/₹/g,"Rs.");
       let y=0;
-      doc.setFillColor(...B);doc.rect(0,0,W,38,"F");
-      doc.setTextColor(...W3);doc.setFont("helvetica","bold");doc.setFontSize(22);doc.text("FinCal",14,16);
-      doc.setFontSize(9);doc.setFont("helvetica","normal");
-      doc.text("Retirement Planning Report",14,24);
-      doc.text(`Generated: ${new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}`,W-14,16,{align:"right"});
-      doc.text("Co-sponsored by HDFC Mutual Fund | Technex'26, IIT (BHU) Varanasi",W-14,24,{align:"right"});
-      y=46;
-      doc.setFillColor(...BG);doc.roundedRect(14,y,W-28,28,3,3,"F");
-      doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Your Profile",20,y+8);
-      doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(...DK);
-      const pItems=[`Current Age: ${inputs.currentAge}`,`Retirement Age: ${inputs.retirementAge}`,`Life Expectancy: ${inputs.lifeExpectancy}`,`Inflation: ${(inputs.inflationRate*100).toFixed(1)}%`,`Monthly Expense: ${fmtINR(inputs.monthlyExpense)}`,`Pre-ret Return: ${(inputs.preReturn*100).toFixed(1)}%`,`Post-ret Return: ${(inputs.postReturn*100).toFixed(1)}%`];
-      pItems.forEach((item,i)=>{const col=i%4,row=Math.floor(i/4);doc.text(item,20+col*47,y+16+row*7,{maxWidth:45});});
-      y+=35;
-      doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text("Key Results",14,y+7);y+=12;
-      const cw=(W-28-12)/4;
-      const drawCard=(x:number,cy:number,w:number,h:number,lbl:string,val:string,col:[number,number,number])=>{
-        doc.setFillColor(255,255,255);doc.setDrawColor(...col);doc.setLineWidth(0.5);doc.roundedRect(x,cy,w,h,2,2,"FD");
-        doc.setFillColor(...col);doc.rect(x,cy,3,h,"F");
-        doc.setTextColor(...G);doc.setFont("helvetica","normal");doc.setFontSize(7);doc.text(lbl.toUpperCase(),x+7,cy+7,{maxWidth:w-12});
-        doc.setTextColor(...col);doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text(val,x+7,cy+16,{maxWidth:w-12});
+
+      // ── helper: add new page + mini header if content would overflow ──
+      const need=(h:number)=>{
+        if(y+h>PH-32){ // 32mm reserved for footer
+          // draw footer on current page first
+          drawFooter();
+          doc.addPage();
+          // mini header on continuation page
+          doc.setFillColor(...B);doc.rect(0,0,W,12,"F");
+          doc.setTextColor(...W3);doc.setFont("helvetica","bold");doc.setFontSize(7);
+          doc.text("OPTIWEALTH  |  FinCal Retirement Report  |  Technex'26",M,8);
+          y=18;
+        }
       };
-      [{lbl:"Required Corpus",val:fmtINR(result.requiredCorpus),col:B},{lbl:"Monthly SIP",val:fmtINR(result.monthlySIP),col:B},{lbl:"Success Prob.",val:`${result.successProbability.toFixed(1)}%`,col:result.successProbability>=75?[42,120,50] as [number,number,number]:R},{lbl:"Corpus Lasts",val:`${result.yearsCorpusLasts} yrs`,col:B}]
-      .forEach((c,i)=>drawCard(14+i*(cw+4),y,cw,22,c.lbl,c.val,c.col));
-      y+=28;
-      if(result.monthlyStepUpSIP){[{lbl:"Step-Up SIP",val:fmtINR(result.monthlyStepUpSIP),col:B},{lbl:"Future Expense",val:fmtINR(result.futureMonthlyExpense),col:G},{lbl:"Today's Equiv.",val:fmtINR(result.monthlyIncomeInTodaysMoney),col:G},{lbl:"Yrs to Retire",val:`${result.yearsToRetirement}`,col:B}].forEach((c,i)=>drawCard(14+i*(cw+4),y,cw,22,c.lbl,c.val,c.col));y+=28;}
-      doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text("Expense Breakdown at Retirement",14,y+7);y+=12;
-      [{lbl:"General Living (6%)",val:result.expenseBuckets.general,pct:60,col:B},{lbl:"Medical & Health (8%)",val:result.expenseBuckets.medical,pct:25,col:R},{lbl:"Lifestyle & Travel (4%)",val:result.expenseBuckets.lifestyle,pct:15,col:[42,120,50] as [number,number,number]}]
-      .forEach((b,i)=>{doc.setTextColor(...DK);doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text(b.lbl,14,y+i*12+5);doc.text(fmtINR(b.val),W-14,y+i*12+5,{align:"right"});doc.setFillColor(230,236,245);doc.rect(14,y+i*12+7,W-28,3,"F");doc.setFillColor(...b.col);doc.rect(14,y+i*12+7,(W-28)*(b.pct/100),3,"F");});
-      y+=46;
-      doc.setFillColor(254,242,242);doc.roundedRect(14,y,W-28,30,3,3,"F");doc.setDrawColor(...R);doc.setLineWidth(0.3);doc.roundedRect(14,y,W-28,30,3,3,"D");
-      doc.setTextColor(...R);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("Cost of Waiting 5 Years",20,y+8);
-      doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(...DK);
-      doc.text(`SIP if start now: ${fmtINR(result.regret.sipIfStartNow)}/mo`,20,y+16);doc.text(`SIP if wait 5 yrs: ${fmtINR(result.regret.sipIfDelayed)}/mo`,20,y+23);
-      doc.text(`Extra per month: ${fmtINR(result.regret.extraMonthlySIP)}/mo`,105,y+16);doc.text(`Total extra paid: ${fmtINR(result.regret.extraTotalPaid)}`,105,y+23);
-      y+=36;
-      doc.setFillColor(...BG);doc.roundedRect(14,y,W-28,20,3,3,"F");
-      doc.setTextColor(...G);doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.text("ASSUMPTIONS DISCLOSED",20,y+7);
-      doc.setFont("helvetica","normal");doc.setFontSize(7);
-      doc.text(`Pre-ret return: ${(inputs.preReturn*100).toFixed(1)}% | Post-ret return: ${(inputs.postReturn*100).toFixed(1)}% | General inflation: 6% | Medical inflation: 8% | Lifestyle inflation: 4% | Monte Carlo: 1,000 simulations`,20,y+13,{maxWidth:W-40});
-      y+=26;
-      doc.setFillColor(...B);doc.rect(0,y,W,26,"F");
-      doc.setTextColor(...W3);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
-      doc.text("This tool has been designed for information purposes only. Actual results may vary depending on various factors involved in capital market. Investor should not consider above as a recommendation for any schemes of HDFC Mutual Fund. Past performance may or may not be sustained in future and is not a guarantee of any future returns.",14,y+7,{maxWidth:W-28});
-      doc.setFont("helvetica","bold");doc.setFontSize(7.5);
-      doc.text("HDFC Mutual Fund | FinCal Innovation Hackathon | Technex'26, IIT (BHU) Varanasi",W/2,y+20,{align:"center"});
-      doc.save("FinCal_Retirement_Report.pdf");
+
+      // ── footer drawer (called before each new page and at end) ────────
+      const drawFooter=()=>{
+        const fy=PH-28;
+        doc.setFillColor(...B);doc.rect(0,fy,W,28,"F");
+        doc.setTextColor(...W3);doc.setFont("helvetica","normal");doc.setFontSize(6);
+        doc.text(
+          "This tool has been designed for information purposes only. Actual results may vary depending on various factors involved in "+
+          "capital market. Investor should not consider above as a recommendation for any schemes of HDFC Mutual Fund. "+
+          "Past performance may or may not be sustained in future and is not a guarantee of any future returns.",
+          M,fy+7,{maxWidth:W-M*2}
+        );
+        doc.setFont("helvetica","bold");doc.setFontSize(7.5);
+        doc.text("Optiwealth  |  FinCal  |  HDFC Mutual Fund  |  Technex'26, IIT (BHU) Varanasi",W/2,fy+21,{align:"center"});
+      };
+
+      // ── HEADER BAND ──────────────────────────────────────────────────
+      doc.setFillColor(...B);doc.rect(0,0,W,44,"F");
+      doc.setTextColor(...W3);
+      doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text("OPTIWEALTH",M,10);
+      doc.setFontSize(22);doc.text("FinCal",M,24);
+      doc.setFont("helvetica","normal");doc.setFontSize(7.5);doc.text("Retirement Planning Report",M,32);
+      const dateStr=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
+      doc.text(`Generated: ${dateStr}`,W-M,10,{align:"right"});
+      doc.text("Co-sponsored by HDFC Mutual Fund",W-M,18,{align:"right"});
+      doc.text("Technex'26 | IIT (BHU) Varanasi",W-M,25,{align:"right"});
+      y=50;
+
+      // ── YOUR PROFILE BOX ─────────────────────────────────────────────
+      need(34);
+      doc.setFillColor(...BG);doc.roundedRect(M,y,W-M*2,34,3,3,"F");
+      doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(10);
+      doc.text("Your Profile",M+6,y+8);
+      doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...DK);
+      const c1=M+6,c2=M+50,c3=M+98,c4=M+148;
+      doc.text(`Current Age: ${inputs.currentAge}`,c1,y+17);
+      doc.text(`Retirement Age: ${inputs.retirementAge}`,c2,y+17);
+      doc.text(`Life Expectancy: ${inputs.lifeExpectancy}`,c3,y+17);
+      doc.text(`Inflation: ${(inputs.inflationRate*100).toFixed(1)}%`,c4,y+17);
+      doc.text(`Monthly Exp: ${rs(fmtINR(inputs.monthlyExpense))}`,c1,y+26);
+      doc.text(`Pre-ret Return: ${(inputs.preReturn*100).toFixed(1)}%`,c2,y+26);
+      doc.text(`Post-ret Return: ${(inputs.postReturn*100).toFixed(1)}%`,c3,y+26);
+      doc.text(`Years to Retire: ${result.yearsToRetirement}`,c4,y+26);
+      y+=40;
+
+      // ── KEY RESULTS ───────────────────────────────────────────────────
+      need(70);
+      doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(10);
+      doc.text("Key Results",M,y+7);y+=12;
+      const cw=(W-M*2-12)/4;
+      const drawCard=(x:number,cy:number,w:number,h:number,lbl:string,val:string,col:[number,number,number])=>{
+        doc.setFillColor(252,252,255);
+        doc.setDrawColor(...col);doc.setLineWidth(0.5);
+        doc.roundedRect(x,cy,w,h,2,2,"FD");
+        doc.setFillColor(...col);doc.rect(x,cy,3,h,"F");
+        doc.setTextColor(...SL);doc.setFont("helvetica","normal");doc.setFontSize(6);
+        doc.text(lbl.toUpperCase(),x+6,cy+7,{maxWidth:w-9});
+        doc.setTextColor(...col);doc.setFont("helvetica","bold");doc.setFontSize(11);
+        doc.text(rs(val),x+6,cy+16,{maxWidth:w-9});
+      };
+      const successCol:[number,number,number]=result.successProbability>=75?GR:R;
+      [{lbl:"Required Corpus",val:fmtINR(result.requiredCorpus),col:B},
+       {lbl:"Monthly SIP",val:fmtINR(result.monthlySIP),col:B},
+       {lbl:"Success Prob.",val:`${result.successProbability.toFixed(1)}%`,col:successCol},
+       {lbl:"Corpus Lasts",val:`${result.yearsCorpusLasts} yrs`,col:B}]
+      .forEach((c,i)=>drawCard(M+i*(cw+4),y,cw,22,c.lbl,c.val,c.col));
+      y+=27;
+      if(result.monthlyStepUpSIP){
+        need(27);
+        [{lbl:"Step-Up SIP",val:fmtINR(result.monthlyStepUpSIP),col:B},
+         {lbl:"Future Expense",val:fmtINR(result.futureMonthlyExpense),col:SL},
+         {lbl:"Today's Equiv.",val:fmtINR(result.monthlyIncomeInTodaysMoney),col:SL},
+         {lbl:"Yrs to Retire",val:`${result.yearsToRetirement} yrs`,col:B}]
+        .forEach((c,i)=>drawCard(M+i*(cw+4),y,cw,22,c.lbl,c.val,c.col));
+        y+=27;
+      }
+
+      // ── EXPENSE BREAKDOWN ─────────────────────────────────────────────
+      need(62);
+      doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(10);
+      doc.text("Expense Breakdown at Retirement",M,y+7);y+=12;
+      [{lbl:"General Living (6%)",val:result.expenseBuckets.general,pct:60,col:B},
+       {lbl:"Medical & Health (8%)",val:result.expenseBuckets.medical,pct:25,col:R},
+       {lbl:"Lifestyle & Travel (4%)",val:result.expenseBuckets.lifestyle,pct:15,col:GR}]
+      .forEach((b,i)=>{
+        const by=y+i*15;
+        doc.setTextColor(...DK);doc.setFont("helvetica","normal");doc.setFontSize(8.5);
+        doc.text(b.lbl,M,by+5);
+        doc.text(rs(fmtINR(b.val)),W-M,by+5,{align:"right"});
+        doc.setFillColor(230,236,245);doc.rect(M,by+7,W-M*2,3.5,"F");
+        doc.setFillColor(...b.col);doc.rect(M,by+7,(W-M*2)*(b.pct/100),3.5,"F");
+      });
+      y+=52;
+
+      // ── COST OF WAITING ───────────────────────────────────────────────
+      need(36);
+      doc.setFillColor(255,245,245);doc.roundedRect(M,y,W-M*2,32,3,3,"F");
+      doc.setDrawColor(...R);doc.setLineWidth(0.4);doc.roundedRect(M,y,W-M*2,32,3,3,"D");
+      doc.setTextColor(...R);doc.setFont("helvetica","bold");doc.setFontSize(9.5);
+      doc.text(`Cost of Waiting ${result.regret.delayYears} Years`,M+6,y+9);
+      doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...DK);
+      doc.text(`SIP if start now:   ${rs(fmtINR(result.regret.sipIfStartNow))}/mo`,M+6,y+17);
+      doc.text(`SIP if wait ${result.regret.delayYears} yrs: ${rs(fmtINR(result.regret.sipIfDelayed))}/mo`,M+6,y+24);
+      doc.text(`Extra per month: ${rs(fmtINR(result.regret.extraMonthlySIP))}/mo`,W/2+6,y+17);
+      doc.text(`Total extra paid: ${rs(fmtINR(result.regret.extraTotalPaid))}`,W/2+6,y+24);
+      y+=37;
+
+      // ── ASSUMPTIONS ───────────────────────────────────────────────────
+      need(22);
+      doc.setFillColor(...BG);doc.roundedRect(M,y,W-M*2,20,3,3,"F");
+      doc.setTextColor(...SL);doc.setFont("helvetica","bold");doc.setFontSize(7);
+      doc.text("ASSUMPTIONS DISCLOSED",M+6,y+7);
+      doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(...DK);
+      doc.text(
+        `Pre-ret: ${(inputs.preReturn*100).toFixed(1)}%  |  Post-ret: ${(inputs.postReturn*100).toFixed(1)}%  |  ` +
+        `General inflation: 6%  |  Medical inflation: 8%  |  Lifestyle inflation: 4%  |  Monte Carlo: 1,000 sims`,
+        M+6,y+14,{maxWidth:W-M*2-12}
+      );
+      y+=24;
+
+      // ── FOOTER (always at bottom of last page) ────────────────────────
+      drawFooter();
+
+      doc.save("Optiwealth_FinCal_Retirement_Report.pdf");
     }catch(e:any){
       alert("PDF error: jspdf is not installed.\n\nTo fix, open a terminal and run:\n  cd frontend\n  npm install jspdf\n\nThen click Download Report again.");
     }
@@ -483,7 +582,7 @@ export default function Home() {
   const t=darkMode?DARK:LIGHT;
 
   const [activeTab,setActiveTab]=useState<NavTab>("calculator");
-  const [form,setForm]=useState<FormState>({currentAge:"25",retirementAge:"60",lifeExpectancy:"85",monthlyExpense:"40000",inflationRate:"6",preReturn:"10",postReturn:"7",stepUpRate:"0",existingCorpus:"0"});
+  const [form,setForm]=useState<FormState>({currentAge:"25",retirementAge:"60",lifeExpectancy:"85",monthlyExpense:"40000",inflationRate:"6",preReturn:"10",postReturn:"7",stepUpRate:"0",existingCorpus:"0",lumpSumWithdrawal:"0"});
   const [result,setResult]=useState<any>(null);
   const [scenario,setScenario]=useState<keyof typeof SCENARIOS>("moderate");
   const [persona,setPersona]=useState("");
@@ -531,6 +630,8 @@ export default function Home() {
     if (!postRet|| postRet <= 0)       return "Post-retirement return must be greater than 0%.";
     if (stepUp < 0)                    return "Step-up rate cannot be negative.";
     if (corpus < 0)                    return "Existing corpus cannot be negative.";
+    const lumpSum = Number(form.lumpSumWithdrawal);
+    if (lumpSum < 0)                   return "Lumpsum withdrawal cannot be negative.";
     return null;
   };
 
@@ -558,7 +659,7 @@ export default function Home() {
 
     setError("");setLoading(true);
     try{
-      const payload={currentAge:Number(form.currentAge),retirementAge:Number(form.retirementAge),lifeExpectancy:Number(form.lifeExpectancy),monthlyExpense:Number(form.monthlyExpense),inflationRate:Number(form.inflationRate)/100,preReturn:Number(form.preReturn)/100,postReturn:Number(form.postReturn)/100,stepUpRate:Number(form.stepUpRate)/100,existingCorpus:Number(form.existingCorpus)};
+      const payload={currentAge:Number(form.currentAge),retirementAge:Number(form.retirementAge),lifeExpectancy:Number(form.lifeExpectancy),monthlyExpense:Number(form.monthlyExpense),inflationRate:Number(form.inflationRate)/100,preReturn:Number(form.preReturn)/100,postReturn:Number(form.postReturn)/100,stepUpRate:Number(form.stepUpRate)/100,existingCorpus:Number(form.existingCorpus),lumpSumWithdrawal:Number(form.lumpSumWithdrawal)};
       const res=await fetch("http://localhost:5000/api/retirement/calculate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       if(!res.ok)throw new Error("Server error");
       const data=await res.json();
@@ -609,12 +710,21 @@ export default function Home() {
       <nav aria-label="Main navigation" style={{borderBottom:`1px solid ${t.border}`,background:t.navBg,position:"sticky",top:0,zIndex:100,boxShadow:t.navShadow,transition:"background 0.25s"}}>
         <div style={{maxWidth:960,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",gap:4}}>
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0",marginRight:"auto"}}>
-            <div style={{width:32,height:32,borderRadius:9,background:t.accentGrad,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:15,fontWeight:800,fontFamily:"Montserrat,Arial,sans-serif"}}>F</div>
+            {/* Optiwealth logo mark — inline SVG, no external file needed */}
+            <svg width="36" height="36" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{borderRadius:9,flexShrink:0}} aria-hidden="true">
+              <rect width="120" height="120" rx="24" fill="#224c87"/>
+              <rect x="22" y="62" width="16" height="34" rx="4" fill="rgba(255,255,255,0.35)"/>
+              <rect x="44" y="44" width="16" height="52" rx="4" fill="rgba(255,255,255,0.6)"/>
+              <rect x="66" y="28" width="16" height="68" rx="4" fill="#ffffff"/>
+              <polyline points="66,28 74,18 82,28" fill="none" stroke="#da3832" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="30,62 52,44 74,28" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="4 3"/>
+              <circle cx="30" cy="62" r="3.5" fill="rgba(255,255,255,0.5)"/>
+              <circle cx="52" cy="44" r="3.5" fill="rgba(255,255,255,0.7)"/>
+              <circle cx="74" cy="28" r="3.5" fill="#ffffff"/>
+            </svg>
             <div>
-              {/* FIX font size: was 19px → 15px */}
-              <div style={{fontSize:15,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1}}>FinCal</div>
-              {/* FIX font size: was 14px → 11px */}
-              <div style={{fontSize:11,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"0.5px"}}>TECHNEX '26</div>
+              <div style={{fontSize:15,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1.1}}>Optiwealth</div>
+              <div style={{fontSize:11,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"0.3px"}}>FinCal · Technex '26</div>
             </div>
           </div>
           <div role="tablist" aria-label="Page sections" style={{display:"flex"}}>
@@ -689,6 +799,7 @@ export default function Home() {
                 <Field label="Life expectancy (years)"            name="lifeExpectancy" value={form.lifeExpectancy} onChange={handleChange} onBlurClamp={handleBlurClamp} min={1}   hint="Plan until this age as a safety buffer"  fieldKey="lifeExpectancy" t={t}/>
                 <Field label="Current monthly expenses (₹)"      name="monthlyExpense" value={form.monthlyExpense} onChange={handleChange} onBlurClamp={handleBlurClamp} min={1}   hint="Total monthly spending today"             fieldKey="monthlyExpense" t={t}/>
                 <Field label="Existing savings / corpus (₹)"     name="existingCorpus" value={form.existingCorpus} onChange={handleChange} onBlurClamp={handleBlurClamp} min={0}   hint="EPF, FD, MF already saved — 0 if none"  fieldKey="existingCorpus" t={t}/>
+                <Field label="Lumpsum withdrawal at retirement (₹)" name="lumpSumWithdrawal" value={form.lumpSumWithdrawal} onChange={handleChange} onBlurClamp={handleBlurClamp} min={0} hint="One-time amount to withdraw on retirement day — 0 if not needed" fieldKey="lumpSumWithdrawal" t={t}/>
                 <Field label="Assumed inflation rate (%)"         name="inflationRate"  value={form.inflationRate}  onChange={handleChange} onBlurClamp={handleBlurClamp} min={0.1} hint="Typical 5–7%. Editable assumption."       fieldKey="inflationRate"  t={t}/>
                 <Field label="Pre-retirement return (% p.a.)"    name="preReturn"      value={form.preReturn}      onChange={handleChange} onBlurClamp={handleBlurClamp} min={0.1} hint="Expected return during working years"      fieldKey="preReturn"      t={t}/>
                 <Field label="Post-retirement return (% p.a.)"   name="postReturn"     value={form.postReturn}     onChange={handleChange} onBlurClamp={handleBlurClamp} min={0.1} hint="Expected return after retirement"          fieldKey="postReturn"     t={t}/>
@@ -730,6 +841,10 @@ export default function Home() {
                     {icon:"📈",title:"Monthly SIP (flat)",          value:fmtINR(result.monthlySIP),                  sub:"Constant monthly investment",highlight:false,color:undefined},
                     ...(result.monthlyStepUpSIP?[{icon:"⬆️",title:`SIP with ${form.stepUpRate}% step-up`,value:fmtINR(result.monthlyStepUpSIP),sub:"Lower start, rises yearly",highlight:true,color:undefined}]:[]),
                     ...(result.existingCorpusAtRetirement>0?[{icon:"💰",title:"Existing savings at retirement",value:fmtINR(result.existingCorpusAtRetirement),sub:"Current corpus compounded",highlight:false,color:t.green}]:[]),
+                    ...(result.lumpSumWithdrawal>0?[
+                      {icon:"🏠",title:"Lumpsum at retirement",value:fmtINR(result.lumpSumWithdrawal),sub:"Withdrawn on day 1",highlight:false,color:t.yellow},
+                      {icon:"📊",title:"Corpus for monthly use",value:fmtINR(result.corpusForIncome),sub:"Remaining after lumpsum",highlight:false,color:t.accent},
+                    ]:[]),
                     {icon:"📆",title:"Corpus duration",             value:`${result.yearsCorpusLasts} yrs`,           sub:"Estimated years it lasts",highlight:false,color:undefined},
                     {icon:"🎲",title:"Success probability",         value:`${Math.round(result.successProbability)}%`,sub:"1,000 Monte Carlo sims",highlight:false,color:risk!.color},
                   ];
@@ -761,6 +876,48 @@ export default function Home() {
                 </div>
 
                 <InteractiveTimeline result={result} form={form} t={t}/>
+
+                {/* Lumpsum withdrawal breakdown — only shown when user set a lumpsum */}
+                {result.lumpSumWithdrawal>0&&(
+                  <section aria-labelledby="lumpsum-h" style={{background:t.surfaceCard,borderRadius:14,padding:"20px 24px",border:`2px solid ${t.yellow}40`,boxShadow:t.cardShadow,marginBottom:24}}>
+                    <h3 id="lumpsum-h" style={{fontSize:15,fontWeight:800,color:t.yellow,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>🏠 Lumpsum Withdrawal Plan</h3>
+                    <p style={{fontSize:13,color:t.textMuted,marginBottom:16,fontFamily:"Montserrat,Arial,sans-serif"}}>On retirement day you withdraw a lump sum first. The remaining corpus then funds your monthly expenses.</p>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
+                      <div style={{background:t.surfaceAlt,borderRadius:10,padding:"14px 16px",border:`1px solid ${t.border}`}}>
+                        <p style={{fontSize:11,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:4}}>Total corpus built</p>
+                        <p style={{fontSize:20,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.requiredCorpus)}</p>
+                        <p style={{fontSize:12,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginTop:3}}>What your SIP builds up to</p>
+                      </div>
+                      <div style={{background:t.surfaceAlt,borderRadius:10,padding:"14px 16px",border:`1.5px solid ${t.yellow}50`}}>
+                        <p style={{fontSize:11,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:4}}>Lumpsum withdrawn</p>
+                        <p style={{fontSize:20,fontWeight:800,color:t.yellow,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.lumpSumWithdrawal)}</p>
+                        <p style={{fontSize:12,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginTop:3}}>Taken out on day 1</p>
+                      </div>
+                      <div style={{background:t.surfaceAlt,borderRadius:10,padding:"14px 16px",border:`1.5px solid ${t.green}50`}}>
+                        <p style={{fontSize:11,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:4}}>Remaining for income</p>
+                        <p style={{fontSize:20,fontWeight:800,color:t.green,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.corpusForIncome)}</p>
+                        <p style={{fontSize:12,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginTop:3}}>Funds monthly withdrawals</p>
+                      </div>
+                    </div>
+                    {/* Visual split bar */}
+                    <div style={{marginTop:8}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:t.textMuted,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>
+                        <span>Corpus split</span>
+                        <span>Lumpsum {((result.lumpSumWithdrawal/result.requiredCorpus)*100).toFixed(1)}% · Income {((result.corpusForIncome/result.requiredCorpus)*100).toFixed(1)}%</span>
+                      </div>
+                      <div style={{height:10,borderRadius:5,background:t.border,overflow:"hidden",display:"flex"}}>
+                        <div style={{width:`${(result.lumpSumWithdrawal/result.requiredCorpus)*100}%`,background:t.yellow,transition:"width 0.5s"}}/>
+                        <div style={{flex:1,background:t.green,transition:"flex 0.5s"}}/>
+                      </div>
+                      <div style={{display:"flex",gap:16,marginTop:6,fontSize:11,fontFamily:"Montserrat,Arial,sans-serif"}}>
+                        <span style={{color:t.yellow}}>■ Lumpsum withdrawal</span>
+                        <span style={{color:t.green}}>■ Monthly income corpus</span>
+                      </div>
+                    </div>
+                    <p style={{fontSize:11,color:t.textMuted,marginTop:12,fontFamily:"Montserrat,Arial,sans-serif"}}>* Your SIP is calculated to build the full corpus including the lumpsum. Illustrative only.</p>
+                  </section>
+                )}
+
                 <SIPLumpsumToggle result={result} form={form} t={t}/>
 
                 <section aria-labelledby="buckets-h" style={{marginBottom:24}}>

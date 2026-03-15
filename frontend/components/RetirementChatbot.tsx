@@ -18,18 +18,7 @@ const SUGGESTED = [
   "Explain the Monte Carlo result simply",
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FIX 3 — Chatbot key setup
-//
-// Option A (recommended for production): Keep backend running with .env key.
-//   The chatbot will use the backend proxy at localhost:5000/api/chat.
-//
-// Option B (demo / hackathon fallback): Paste your Anthropic key below.
-//   The chatbot calls Anthropic directly from the browser if the backend fails.
-//   Get key from: https://console.anthropic.com → API Keys → Create Key
-//
-const DIRECT_API_KEY: string = "AIzaSyBTncdMewKfc6TZrthCSKxqYgEX_lNfyKQ"; // ← replace for Option B
-// ─────────────────────────────────────────────────────────────────────────────
+const DIRECT_API_KEY: string = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 
 export default function RetirementChatbot({ result, form }: ChatbotProps) {
   const [open, setOpen] = useState(false);
@@ -40,7 +29,7 @@ export default function RetirementChatbot({ result, form }: ChatbotProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const systemPrompt = `You are FinCal Advisor, a friendly educational retirement planning assistant for FinCal at Technex'26 IIT (BHU) Varanasi, co-sponsored by HDFC Mutual Fund.
+  const systemPrompt = `You are FinCal Advisor by Optiwealth, a friendly educational retirement planning assistant built for FinCal at Technex'26 IIT (BHU) Varanasi, co-sponsored by HDFC Mutual Fund. Team: Optiwealth (Soumya Dhole, Shashwat Deshpande, Niraj Bhakte).
 
 User's exact retirement numbers:
 - Current age: ${form.currentAge}, Retirement age: ${form.retirementAge}, Life expectancy: ${form.lifeExpectancy}
@@ -62,7 +51,7 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
     if (open && messages.length === 0) {
       setMessages([{
         role: "assistant",
-        content: `Hi! I can see you've just calculated your retirement plan. Your required corpus is **${fmtINR(result.requiredCorpus)}** with a success probability of **${result.successProbability.toFixed(0)}%**.\n\nWhat would you like to understand better about your plan?`
+        content: `Hi! I'm your FinCal Advisor by **Optiwealth**. I can see you've calculated your retirement plan.\n\nYour required corpus is **${fmtINR(result.requiredCorpus)}** with a success probability of **${result.successProbability.toFixed(0)}%**.\n\nWhat would you like to understand better?`
       }]);
     }
   }, [open]);
@@ -85,8 +74,7 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
       messages: newMessages.map(m => ({ role: m.role, content: m.content })),
     };
 
-    // ── Try 1: Backend proxy (API key stays server-side, best security) ──────
-    let backendSucceeded = false;
+    // ── Try 1: Backend proxy ──────────────────────────────────────────────
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
@@ -97,7 +85,6 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
         signal: controller.signal,
       });
       clearTimeout(timeout);
-
       if (res.ok) {
         const data = await res.json();
         const reply = data?.content?.[0]?.text;
@@ -106,24 +93,17 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
           setLoading(false);
           return;
         }
-        // Backend responded but returned an error payload
         const errMsg: string = data?.error || "";
-        if (errMsg.includes("ANTHROPIC_API_KEY") || errMsg.includes("not set")) {
-          // Key missing on backend — fall through to direct API below
-        } else {
-          throw new Error(errMsg || `Backend returned unexpected response`);
+        if (!errMsg.includes("ANTHROPIC_API_KEY") && !errMsg.includes("not set")) {
+          throw new Error(errMsg || "Backend returned unexpected response");
         }
       } else {
         const data = await res.json().catch(() => ({}));
         const errMsg: string = data?.error || "";
-        if (!errMsg.includes("ANTHROPIC_API_KEY")) {
-          throw new Error(errMsg || `Backend returned ${res.status}`);
-        }
-        // Key missing — fall through to direct API
+        if (!errMsg.includes("ANTHROPIC_API_KEY")) throw new Error(errMsg || `Backend returned ${res.status}`);
       }
     } catch (e: any) {
       const msg: string = e?.message || "";
-      // Only network errors or explicit non-key errors stop here
       const isNetworkError = msg.includes("abort") || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ECONNREFUSED");
       const isKeyError = msg.includes("ANTHROPIC_API_KEY") || msg.includes("not set");
       if (!isNetworkError && !isKeyError) {
@@ -131,43 +111,32 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
         setLoading(false);
         return;
       }
-      // For network errors or key errors: fall through to direct API
     }
 
-    // ── Try 2: Direct Gemini API (fallback for demo / missing .env) ───────
-    const keyIsPlaceholder = DIRECT_API_KEY === "AIzaSyBTncdMewKfc6TZrthCSKxqYgEX_lNfyKQ" ? false : false; // Using real key
-
+    // ── Try 2: Direct Gemini API fallback ─────────────────────────────────
     try {
-      // Convert messages to Gemini format
       const geminiMessages = newMessages.map(m => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }]
       }));
-
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${DIRECT_API_KEY}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: geminiMessages,
         }),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        const errMsg = err?.error?.message || `Gemini API error ${res.status}`;
-        throw new Error(errMsg);
+        throw new Error(err?.error?.message || `Gemini API error ${res.status}`);
       }
-
       const data = await res.json();
       const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I could not generate a response.";
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
     } catch (e: any) {
       setError(e?.message || "Network error. Please check your connection and try again.");
     }
-
     setLoading(false);
   };
 
@@ -184,8 +153,9 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
 
   return (
     <>
+      {/* Floating button */}
       {!open && (
-        <button onClick={() => setOpen(true)} aria-label="Open FinCal AI Advisor"
+        <button onClick={() => setOpen(true)} aria-label="Open Optiwealth FinCal AI Advisor"
           style={{ position: "fixed", bottom: 72, right: 24, zIndex: 999, width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg,#224c87,#1a3a6b)", color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(34,76,135,0.5)", fontSize: 22, display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 0.2s,box-shadow 0.2s" }}
           onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.transform = "scale(1.12)"; b.style.boxShadow = "0 6px 28px rgba(34,76,135,0.65)"; }}
           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.transform = "scale(1)"; b.style.boxShadow = "0 4px 20px rgba(34,76,135,0.5)"; }}
@@ -195,21 +165,32 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
         </button>
       )}
 
+      {/* Chat window */}
       {open && (
-        <div role="dialog" aria-label="FinCal AI Retirement Advisor" aria-modal="true"
+        <div role="dialog" aria-label="Optiwealth FinCal AI Retirement Advisor" aria-modal="true"
           style={{ position: "fixed", bottom: 72, right: 24, zIndex: 1000, width: 384, height: 580, background: "#1a1d27", borderRadius: 18, boxShadow: "0 12px 60px rgba(0,0,0,0.55)", display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid #2c3a5a", animation: "chatSlideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)" }}
         >
-          {/* Header */}
+          {/* Header — Optiwealth branding */}
           <div style={{ background: "linear-gradient(135deg,#224c87,#1a3a6b)", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🤖</div>
+            {/* Inline logo mark */}
+            <svg width="38" height="38" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 9, flexShrink: 0 }} aria-hidden="true">
+              <rect width="120" height="120" rx="24" fill="rgba(255,255,255,0.15)"/>
+              <rect x="22" y="62" width="16" height="34" rx="4" fill="rgba(255,255,255,0.35)"/>
+              <rect x="44" y="44" width="16" height="52" rx="4" fill="rgba(255,255,255,0.6)"/>
+              <rect x="66" y="28" width="16" height="68" rx="4" fill="#ffffff"/>
+              <polyline points="66,28 74,18 82,28" fill="none" stroke="#da3832" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="30" cy="62" r="3.5" fill="rgba(255,255,255,0.5)"/>
+              <circle cx="52" cy="44" r="3.5" fill="rgba(255,255,255,0.7)"/>
+              <circle cx="74" cy="28" r="3.5" fill="#ffffff"/>
+            </svg>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", fontFamily: "Montserrat,Arial,sans-serif" }}>FinCal Advisor</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", fontFamily: "Montserrat,Arial,sans-serif", lineHeight: 1.1 }}>Optiwealth</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: "Montserrat,Arial,sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", display: "inline-block" }} />
-                Knows your retirement numbers
+                FinCal Advisor · Technex '26
               </div>
             </div>
-            <button onClick={() => setOpen(false)} aria-label="Close"
+            <button onClick={() => setOpen(false)} aria-label="Close chat"
               style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", borderRadius: 8, width: 30, height: 30, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           </div>
 
@@ -218,9 +199,18 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
             {messages.map((m, i) => (
               <div key={i} style={{ display: "flex", gap: 8, flexDirection: m.role === "user" ? "row-reverse" : "row", alignItems: "flex-end" }}>
                 {m.role === "assistant" && (
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#224c87,#1a3a6b)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, flexShrink: 0 }}>FC</div>
+                  // Small logo avatar on assistant messages
+                  <svg width="28" height="28" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: "50%", flexShrink: 0 }} aria-hidden="true">
+                    <rect width="120" height="120" rx="60" fill="url(#grad)"/>
+                    <defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#224c87"/><stop offset="100%" stopColor="#1a3a6b"/></linearGradient></defs>
+                    <rect x="28" y="66" width="14" height="30" rx="3" fill="rgba(255,255,255,0.4)"/>
+                    <rect x="48" y="50" width="14" height="46" rx="3" fill="rgba(255,255,255,0.65)"/>
+                    <rect x="68" y="34" width="14" height="62" rx="3" fill="#ffffff"/>
+                    <polyline points="68,34 75,24 82,34" fill="none" stroke="#da3832" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 )}
-                <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role === "user" ? "linear-gradient(135deg,#224c87,#1a3a6b)" : "#1e2235", color: m.role === "user" ? "#fff" : "#e2e8f0", fontSize: 14, lineHeight: 1.6, border: m.role === "assistant" ? "1px solid #2c3a5a" : "none", fontFamily: "Georgia,'Times New Roman',serif" }}>
+                {/* FIX: Georgia removed → Arial */}
+                <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role === "user" ? "linear-gradient(135deg,#224c87,#1a3a6b)" : "#1e2235", color: m.role === "user" ? "#fff" : "#e2e8f0", fontSize: 13, lineHeight: 1.6, border: m.role === "assistant" ? "1px solid #2c3a5a" : "none", fontFamily: "Arial,sans-serif" }}>
                   {renderMsg(m.content)}
                 </div>
               </div>
@@ -228,7 +218,13 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
 
             {loading && (
               <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#224c87,#1a3a6b)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, flexShrink: 0 }}>FC</div>
+                <svg width="28" height="28" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: "50%", flexShrink: 0 }} aria-hidden="true">
+                  <rect width="120" height="120" rx="60" fill="url(#grad)"/>
+                  <rect x="28" y="66" width="14" height="30" rx="3" fill="rgba(255,255,255,0.4)"/>
+                  <rect x="48" y="50" width="14" height="46" rx="3" fill="rgba(255,255,255,0.65)"/>
+                  <rect x="68" y="34" width="14" height="62" rx="3" fill="#ffffff"/>
+                  <polyline points="68,34 75,24 82,34" fill="none" stroke="#da3832" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
                 <div style={{ padding: "12px 18px", borderRadius: "18px 18px 18px 4px", background: "#1e2235", border: "1px solid #2c3a5a", display: "flex", gap: 5, alignItems: "center" }}>
                   {[0, 1, 2].map(i => <span key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: "#4f7ec4", display: "inline-block", animation: `typingDot 1.4s ease-in-out ${i * 0.18}s infinite` }} />)}
                 </div>
@@ -262,23 +258,24 @@ Always end EVERY response with exactly: 📌 Illustrative only — not investmen
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
+          {/* Input bar */}
           <div style={{ padding: "12px 14px", borderTop: "1px solid #1e2235", background: "#1a1d27", flexShrink: 0 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center", background: "#0f1117", borderRadius: 12, padding: "6px 6px 6px 14px", border: "1.5px solid #2c3a5a", transition: "border-color 0.15s" }}
               onFocusCapture={e => e.currentTarget.style.borderColor = "#4f7ec4"}
               onBlurCapture={e => e.currentTarget.style.borderColor = "#2c3a5a"}
             >
+              {/* FIX: Georgia removed → Arial */}
               <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
                 placeholder="Ask about your retirement plan…"
                 disabled={loading} aria-label="Message" suppressHydrationWarning
-                style={{ flex: 1, border: "none", background: "transparent", fontSize: 14, outline: "none", fontFamily: "Georgia,'Times New Roman',serif", color: "#e2e8f0", padding: 0 }}
+                style={{ flex: 1, border: "none", background: "transparent", fontSize: 13, outline: "none", fontFamily: "Arial,sans-serif", color: "#e2e8f0", padding: 0 }}
               />
               <button onClick={() => send()} disabled={loading || !input.trim()} aria-label="Send"
                 style={{ width: 34, height: 34, borderRadius: 9, background: loading || !input.trim() ? "#1e2235" : "linear-gradient(135deg,#224c87,#1a3a6b)", color: "#fff", border: "none", cursor: loading || !input.trim() ? "not-allowed" : "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, opacity: loading || !input.trim() ? 0.4 : 1 }}>▶</button>
             </div>
             <p style={{ fontSize: 11, color: "#334155", marginTop: 8, textAlign: "center", fontFamily: "Montserrat,Arial,sans-serif" }}>
-              For education only. Not investment advice. Not a recommendation for any HDFC Mutual Fund scheme.
+              Optiwealth · For education only · Not investment advice · Not a recommendation for any HDFC Mutual Fund scheme.
             </p>
           </div>
         </div>

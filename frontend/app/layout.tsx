@@ -9,8 +9,8 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "FinCal — Retirement Planning Calculator | Technex'26",
-  description: "Plan your retirement corpus and monthly SIP. Co-sponsored by HDFC Mutual Fund. Technex'26, IIT (BHU) Varanasi.",
+  title: "FinCal by Optiwealth — Retirement Planning Calculator | Technex'26",
+  description: "Plan your retirement corpus and monthly SIP. Built by Team Optiwealth. Co-sponsored by HDFC Mutual Fund. Technex'26, IIT (BHU) Varanasi.",
 };
 
 export default function RootLayout({
