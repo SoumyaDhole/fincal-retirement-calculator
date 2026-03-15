@@ -60,16 +60,19 @@ const FIELD_EDU:Record<string,{why:string;eg:string}> = {
   stepUpRate:    {why:"Raising SIP by 10–15%/year cuts starting SIP dramatically.",eg:"10% step-up reduces starting SIP by ~35% vs flat SIP."},
 };
 
-// ─── Tour steps ───────────────────────────────────────────────
-const TOUR = [
-  {anchor:"darkmode-btn", pos:"bl", icon:"🌓", title:"Light & Dark Mode",      desc:"Toggle the ☀️/🌙 switch in the top-right corner to switch themes anytime. Dark mode looks great for presentations!"},
-  {anchor:"tour-btn",     pos:"bl", icon:"❓", title:"Guided Tour Button",      desc:"Click this ❓ button anytime to restart this tour and revisit how each feature works."},
-  {anchor:"persona-sec",  pos:"br", icon:"🎓", title:"Quick Start Profiles",   desc:"New here? Click a profile like \"Fresh Graduate\" or \"Mid-career\" to auto-fill all fields with realistic values instantly."},
-  {anchor:"form-sec",     pos:"br", icon:"💡", title:"Learn As You Fill",       desc:"See the ? next to every input? Click it for a plain-English explanation of what that field means and a real-world example."},
-  {anchor:"calc-btn",     pos:"tr", icon:"🧮", title:"Calculate Your Plan",    desc:"After filling your details, click this button. You'll get your corpus, SIP, Monte Carlo success %, journey timeline, and more."},
-  {anchor:"compare-tab",  pos:"br", icon:"⚖", title:"Compare Scenarios",       desc:"Use the Compare tab to run two scenarios side-by-side — great for comparing Conservative vs Aggressive investment styles."},
-  {anchor:"learn-tab",    pos:"br", icon:"📚", title:"Learn Tab",              desc:"Never heard of Monte Carlo or retirement corpus? Visit Learn for beginner-friendly explainers on every concept used here."},
-  {anchor:"pdf-dummy",    pos:"br", icon:"⬇", title:"Download PDF Report",    desc:"After calculating, a Download Report button appears. Click it to save a branded, compliance-ready PDF you can share or keep."},
+// ─── Tour steps — split into pre-results and post-results ─────
+// requiresResults:true steps only show after the user has calculated
+const TOUR_ALL = [
+  {anchor:"darkmode-btn", pos:"bl", icon:"🌓", title:"Light & Dark Mode",     desc:"Toggle the ☀️/🌙 switch in the top-right corner to switch themes anytime. Dark mode looks great for presentations!", requiresResults:false},
+  {anchor:"tour-btn",     pos:"bl", icon:"❓", title:"Guided Tour Button",     desc:"Click this ❓ button anytime to restart this tour and revisit how each feature works.", requiresResults:false},
+  {anchor:"persona-sec",  pos:"br", icon:"🎓", title:"Quick Start Profiles",  desc:"New here? Click a profile like \"Fresh Graduate\" or \"Mid-career\" to auto-fill all fields with realistic values instantly.", requiresResults:false},
+  {anchor:"form-sec",     pos:"br", icon:"💡", title:"Learn As You Fill",      desc:"See the ? next to every input? Click it for a plain-English explanation of what that field means and a real-world example.", requiresResults:false},
+  {anchor:"calc-btn",     pos:"tr", icon:"🧮", title:"Calculate Your Plan",   desc:"After filling your details, click this button. You'll get your corpus, SIP, Monte Carlo success %, journey timeline, and more.", requiresResults:false},
+  {anchor:"compare-tab",  pos:"br", icon:"⚖", title:"Compare Scenarios",      desc:"Use the Compare tab to run two scenarios side-by-side — great for comparing Conservative vs Aggressive investment styles.", requiresResults:false},
+  {anchor:"learn-tab",    pos:"br", icon:"📚", title:"Learn Tab",             desc:"Never heard of Monte Carlo or retirement corpus? Visit Learn for beginner-friendly explainers on every concept used here.", requiresResults:false},
+  // These steps require results to be visible — shown only after Calculate is clicked
+  {anchor:"results-section", pos:"br", icon:"📊", title:"Your Results",       desc:"Here's your full retirement plan — corpus, monthly SIP, Monte Carlo probability, journey timeline and more.", requiresResults:true},
+  {anchor:"pdf-btn",      pos:"tr", icon:"⬇", title:"Download PDF Report",    desc:"Click here to save a branded, compliance-ready PDF of your full retirement plan that you can share or keep.", requiresResults:true},
 ];
 
 type NavTab = "calculator"|"comparison"|"learn";
@@ -78,8 +81,8 @@ function fmtINR(n:number){if(n>=1e7)return"₹"+(n/1e7).toFixed(2)+" Cr";if(n>=1
 function getRisk(p:number){if(p>=80)return{label:"SAFE",bg:"rgba(52,211,153,0.12)",color:"#34d399",border:"rgba(52,211,153,0.3)"};if(p>=50)return{label:"MODERATE",bg:"rgba(251,191,36,0.12)",color:"#fbbf24",border:"rgba(251,191,36,0.3)"};return{label:"RISKY",bg:"rgba(248,113,113,0.12)",color:"#f87171",border:"rgba(248,113,113,0.3)"};}
 
 // ─── Tooltip Tour ─────────────────────────────────────────────
-function TourTooltip({step,onNext,onSkip,total,t}:{step:number;onNext:()=>void;onSkip:()=>void;total:number;t:Theme}) {
-  const s = TOUR[step];
+function TourTooltip({step,onNext,onSkip,total,t,steps}:{step:number;onNext:()=>void;onSkip:()=>void;total:number;t:Theme;steps:typeof TOUR_ALL}) {
+  const s = steps[step];
   const [rect, setRect] = useState<{top:number;left:number;width:number;height:number}|null>(null);
 
   useEffect(()=>{
@@ -94,7 +97,7 @@ function TourTooltip({step,onNext,onSkip,total,t}:{step:number;onNext:()=>void;o
     update();
     const t2 = setTimeout(update, 300);
     return ()=>clearTimeout(t2);
-  },[step]);
+  },[step, s.anchor]);
 
   const tooltipW = 290;
   let tipTop = 0, tipLeft = 0;
@@ -121,17 +124,19 @@ function TourTooltip({step,onNext,onSkip,total,t}:{step:number;onNext:()=>void;o
           <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
             <div style={{width:36,height:36,borderRadius:9,background:t.surfaceAlt,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{s.icon}</div>
             <div style={{flex:1}}>
-              <div style={{fontSize:14,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:700,textTransform:"uppercase" as const,letterSpacing:"0.5px",marginBottom:3}}>Step {step+1} of {total}</div>
-              <div style={{fontSize:18,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1.2}}>{s.title}</div>
+              {/* FIX font size: was 14px, keeping at 12px */}
+              <div style={{fontSize:12,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:700,textTransform:"uppercase" as const,letterSpacing:"0.5px",marginBottom:3}}>Step {step+1} of {total}</div>
+              <div style={{fontSize:15,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1.2}}>{s.title}</div>
             </div>
           </div>
-          <p style={{fontSize:17,color:t.textSub,lineHeight:1.6,fontFamily:"Georgia,serif",marginBottom:14}}>{s.desc}</p>
+          {/* FIX: Georgia removed → Arial */}
+          <p style={{fontSize:13,color:t.textSub,lineHeight:1.6,fontFamily:"Arial,sans-serif",marginBottom:14}}>{s.desc}</p>
           <div style={{height:3,background:t.border,borderRadius:2,marginBottom:14}}>
             <div style={{width:`${((step+1)/total)*100}%`,height:"100%",background:t.accentGrad,borderRadius:2,transition:"width 0.3s"}}/>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <button onClick={onSkip} style={{background:"transparent",border:"none",fontSize:16,color:t.textMuted,cursor:"pointer",fontFamily:"Montserrat,Arial,sans-serif"}}>Skip tour</button>
-            <button onClick={onNext} style={{background:t.accentGrad,border:"none",borderRadius:8,padding:"8px 18px",fontSize:17,color:"#fff",cursor:"pointer",fontFamily:"Montserrat,Arial,sans-serif",fontWeight:700}}>
+            <button onClick={onSkip} style={{background:"transparent",border:"none",fontSize:13,color:t.textMuted,cursor:"pointer",fontFamily:"Montserrat,Arial,sans-serif"}}>Skip tour</button>
+            <button onClick={onNext} style={{background:t.accentGrad,border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,color:"#fff",cursor:"pointer",fontFamily:"Montserrat,Arial,sans-serif",fontWeight:700}}>
               {step===total-1?"Done ✓":"Next →"}
             </button>
           </div>
@@ -142,7 +147,6 @@ function TourTooltip({step,onNext,onSkip,total,t}:{step:number;onNext:()=>void;o
 }
 
 // ─── Field ────────────────────────────────────────────────────
-// FIX 4: added min + onBlurClamp props
 function Field({label,name,value,onChange,onBlurClamp,hint,fieldKey,min,t}:{
   label:string;name:string;value:string;
   onChange:(e:React.ChangeEvent<HTMLInputElement>)=>void;
@@ -154,11 +158,13 @@ function Field({label,name,value,onChange,onBlurClamp,hint,fieldKey,min,t}:{
   return (
     <div style={{position:"relative"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-        <label htmlFor={`f-${name}`} style={{fontSize:17,fontWeight:700,color:t.textSub,fontFamily:"Montserrat,Arial,sans-serif"}}>{label}</label>
-        {edu&&<button type="button" onClick={()=>setShowEdu(v=>!v)} aria-expanded={showEdu}
-          style={{background:showEdu?t.accent:"transparent",border:`1px solid ${t.borderAccent}`,borderRadius:"50%",width:22,height:22,fontSize:15,fontWeight:700,color:showEdu?"#fff":t.accent,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>?</button>}
+        {/* FIX font size: was 17px → 14px */}
+        <label htmlFor={`f-${name}`} style={{fontSize:14,fontWeight:700,color:t.textSub,fontFamily:"Montserrat,Arial,sans-serif"}}>{label}</label>
+        {edu&&<button type="button" onClick={()=>setShowEdu(v=>!v)} aria-expanded={showEdu} suppressHydrationWarning
+          style={{background:showEdu?t.accent:"transparent",border:`1px solid ${t.borderAccent}`,borderRadius:"50%",width:22,height:22,fontSize:13,fontWeight:700,color:showEdu?"#fff":t.accent,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>?</button>}
       </div>
-      {hint&&<p style={{fontSize:16,color:t.textMuted,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>{hint}</p>}
+      {/* FIX font size: was 16px → 13px */}
+      {hint&&<p style={{fontSize:13,color:t.textMuted,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>{hint}</p>}
       <input
         id={`f-${name}`}
         type="number"
@@ -168,15 +174,18 @@ function Field({label,name,value,onChange,onBlurClamp,hint,fieldKey,min,t}:{
         onChange={onChange}
         onBlur={()=>{ if(onBlurClamp && min!==undefined) onBlurClamp(name, min); }}
         suppressHydrationWarning
-        style={{width:"100%",padding:"13px 15px",border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:19,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",background:t.inputBg,outline:"none",transition:"border-color 0.15s",boxSizing:"border-box" as const}}
+        style={{width:"100%",padding:"11px 13px",border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:15,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",background:t.inputBg,outline:"none",transition:"border-color 0.15s",boxSizing:"border-box" as const}}
         onFocus={e=>e.target.style.borderColor=t.accent}
       />
       {showEdu&&edu&&(
         <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:30,background:"#1e293b",borderRadius:10,padding:"13px 15px",boxShadow:"0 8px 32px rgba(0,0,0,0.4)",marginTop:4,border:"1px solid #334155"}}>
-          <div style={{fontSize:16,fontWeight:700,color:"#93c5fd",marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif"}}>Why this matters</div>
-          <p style={{fontSize:17,color:"#e2e8f0",marginBottom:8,lineHeight:1.6,fontFamily:"Georgia,serif"}}>{edu.why}</p>
-          <div style={{fontSize:16,fontWeight:700,color:"#86efac",marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Example</div>
-          <p style={{fontSize:16,color:"#bbf7d0",lineHeight:1.6,fontFamily:"Georgia,serif"}}>{edu.eg}</p>
+          {/* FIX font size: was 16px → 13px */}
+          <div style={{fontSize:13,fontWeight:700,color:"#93c5fd",marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif"}}>Why this matters</div>
+          {/* FIX: Georgia removed → Arial */}
+          <p style={{fontSize:13,color:"#e2e8f0",marginBottom:8,lineHeight:1.6,fontFamily:"Arial,sans-serif"}}>{edu.why}</p>
+          <div style={{fontSize:13,fontWeight:700,color:"#86efac",marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Example</div>
+          {/* FIX: Georgia removed → Arial */}
+          <p style={{fontSize:13,color:"#bbf7d0",lineHeight:1.6,fontFamily:"Arial,sans-serif"}}>{edu.eg}</p>
         </div>
       )}
     </div>
@@ -186,13 +195,16 @@ function Field({label,name,value,onChange,onBlurClamp,hint,fieldKey,min,t}:{
 // ─── ResultCard ───────────────────────────────────────────────
 function ResultCard({title,value,sub,highlight,color,icon,t}:{title:string;value:string;sub?:string;highlight?:boolean;color?:string;icon?:string;t:Theme}) {
   return (
-    <div style={{padding:"18px 20px",borderRadius:12,border:highlight?`2px solid ${t.accent}`:`1px solid ${t.border}`,background:highlight?t.surfaceAlt:t.surfaceCard,boxShadow:t.cardShadow,position:"relative",overflow:"hidden",transition:"transform 0.2s,box-shadow 0.2s"}}
+    <div style={{padding:"16px 18px",borderRadius:12,border:highlight?`2px solid ${t.accent}`:`1px solid ${t.border}`,background:highlight?t.surfaceAlt:t.surfaceCard,boxShadow:t.cardShadow,position:"relative",overflow:"hidden",transition:"transform 0.2s,box-shadow 0.2s"}}
       onMouseEnter={e=>{const d=e.currentTarget as HTMLDivElement;d.style.transform="translateY(-2px)";d.style.boxShadow="0 6px 20px rgba(0,0,0,0.15)";}}
       onMouseLeave={e=>{const d=e.currentTarget as HTMLDivElement;d.style.transform="translateY(0)";d.style.boxShadow=t.cardShadow;}}>
       {highlight&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:t.accentGrad}}/>}
-      <p style={{fontSize:15,color:t.textMuted,marginBottom:7,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:700,textTransform:"uppercase" as const,letterSpacing:"0.6px"}}>{icon&&<span style={{marginRight:5}}>{icon}</span>}{title}</p>
-      <p style={{fontSize:28,fontWeight:800,color:color??t.accent,lineHeight:1.2,fontFamily:"Montserrat,Arial,sans-serif"}}>{value}</p>
-      {sub&&<p style={{fontSize:16,color:t.textMuted,marginTop:6,fontFamily:"Montserrat,Arial,sans-serif"}}>{sub}</p>}
+      {/* FIX font size: was 15px → 12px */}
+      <p style={{fontSize:12,color:t.textMuted,marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:700,textTransform:"uppercase" as const,letterSpacing:"0.6px"}}>{icon&&<span style={{marginRight:5}}>{icon}</span>}{title}</p>
+      {/* FIX font size: was 28px → 22px */}
+      <p style={{fontSize:22,fontWeight:800,color:color??t.accent,lineHeight:1.2,fontFamily:"Montserrat,Arial,sans-serif"}}>{value}</p>
+      {/* FIX font size: was 16px → 13px */}
+      {sub&&<p style={{fontSize:13,color:t.textMuted,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif"}}>{sub}</p>}
     </div>
   );
 }
@@ -200,16 +212,20 @@ function ResultCard({title,value,sub,highlight,color,icon,t}:{title:string;value
 // ─── BucketCard ───────────────────────────────────────────────
 function BucketCard({label,value,rate,color,pct,icon,t}:{label:string;value:string;rate:string;color:string;pct:string;icon:string;t:Theme}) {
   return (
-    <div style={{padding:"18px 20px",borderRadius:12,border:`1.5px solid ${color}30`,background:t.surfaceCard,boxShadow:t.cardShadow,transition:"transform 0.2s"}}
+    <div style={{padding:"16px 18px",borderRadius:12,border:`1.5px solid ${color}30`,background:t.surfaceCard,boxShadow:t.cardShadow,transition:"transform 0.2s"}}
       onMouseEnter={e=>(e.currentTarget as HTMLDivElement).style.transform="translateY(-2px)"}
       onMouseLeave={e=>(e.currentTarget as HTMLDivElement).style.transform="translateY(0)"}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-        <span style={{fontSize:24}}>{icon}</span>
-        <span style={{fontSize:15,fontWeight:700,color:"#fff",background:color,padding:"3px 10px",borderRadius:20,fontFamily:"Montserrat,Arial,sans-serif"}}>{pct}</span>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+        <span style={{fontSize:22}}>{icon}</span>
+        {/* FIX font size: was 15px → 12px */}
+        <span style={{fontSize:12,fontWeight:700,color:"#fff",background:color,padding:"3px 10px",borderRadius:20,fontFamily:"Montserrat,Arial,sans-serif"}}>{pct}</span>
       </div>
-      <p style={{fontSize:18,fontWeight:700,color:t.text,marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif"}}>{label}</p>
-      <p style={{fontSize:26,fontWeight:800,color,fontFamily:"Montserrat,Arial,sans-serif"}}>{value}</p>
-      <p style={{fontSize:16,color:t.textMuted,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif"}}>Assumed {rate} p.a.</p>
+      {/* FIX font size: was 18px → 14px */}
+      <p style={{fontSize:14,fontWeight:700,color:t.text,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>{label}</p>
+      {/* FIX font size: was 26px → 20px */}
+      <p style={{fontSize:20,fontWeight:800,color,fontFamily:"Montserrat,Arial,sans-serif"}}>{value}</p>
+      {/* FIX font size: was 16px → 13px */}
+      <p style={{fontSize:13,color:t.textMuted,marginTop:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Assumed {rate} p.a.</p>
     </div>
   );
 }
@@ -232,29 +248,44 @@ function InteractiveTimeline({result,form,t}:{result:any;form:FormState;t:Theme}
   const phaseColor=phase==="accumulation"?"#4f7ec4":t.red;
   const pct=((sliderAge-currentAge)/(lifeExp-currentAge))*100;
   return (
-    <section aria-labelledby="itl-h" style={{background:t.surfaceCard,borderRadius:14,padding:"24px 26px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:28}}>
-      <h3 id="itl-h" style={{fontSize:20,fontWeight:800,color:t.accent,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>📍 Your Retirement Journey</h3>
-      <p style={{fontSize:17,color:t.textMuted,marginBottom:20,fontFamily:"Montserrat,Arial,sans-serif"}}>Drag the slider to explore your estimated corpus at any age.</p>
-      <div style={{background:t.surfaceAlt,borderRadius:12,padding:"18px 22px",marginBottom:20,border:`2px solid ${phaseColor}30`,display:"flex",flexWrap:"wrap" as const,gap:20,alignItems:"center"}}>
+    <section aria-labelledby="itl-h" style={{background:t.surfaceCard,borderRadius:14,padding:"22px 24px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:28}}>
+      {/* FIX font size: was 20px → 16px */}
+      <h3 id="itl-h" style={{fontSize:16,fontWeight:800,color:t.accent,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>📍 Your Retirement Journey</h3>
+      {/* FIX font size: was 17px → 13px */}
+      <p style={{fontSize:13,color:t.textMuted,marginBottom:18,fontFamily:"Montserrat,Arial,sans-serif"}}>Drag the slider to explore your estimated corpus at any age.</p>
+      <div style={{background:t.surfaceAlt,borderRadius:12,padding:"16px 20px",marginBottom:18,border:`2px solid ${phaseColor}30`,display:"flex",flexWrap:"wrap" as const,gap:18,alignItems:"center"}}>
         <div style={{textAlign:"center" as const,minWidth:90}}>
-          <div style={{fontSize:34,fontWeight:800,color:phaseColor,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1}}>Age {sliderAge}</div>
-          <div style={{fontSize:15,color:t.textMuted,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif",textTransform:"uppercase" as const,letterSpacing:"0.5px",fontWeight:600}}>{phase==="accumulation"?"Building wealth":"Drawing down"}</div>
+          {/* FIX font size: was 34px → 26px */}
+          <div style={{fontSize:26,fontWeight:800,color:phaseColor,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1}}>Age {sliderAge}</div>
+          {/* FIX font size: was 15px → 12px */}
+          <div style={{fontSize:12,color:t.textMuted,marginTop:4,fontFamily:"Montserrat,Arial,sans-serif",textTransform:"uppercase" as const,letterSpacing:"0.5px",fontWeight:600}}>{phase==="accumulation"?"Building wealth":"Drawing down"}</div>
         </div>
-        <div style={{width:1,height:56,background:t.border,flexShrink:0}}/>
+        <div style={{width:1,height:48,background:t.border,flexShrink:0}}/>
         <div style={{flex:1,minWidth:160}}>
-          <div style={{fontSize:16,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:4,fontWeight:600}}>Estimated corpus</div>
-          <div style={{fontSize:30,fontWeight:800,color:phaseColor,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(Math.round(corpus))}</div>
+          {/* FIX font size: was 16px → 13px */}
+          <div style={{fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:3,fontWeight:600}}>Estimated corpus</div>
+          {/* FIX font size: was 30px → 22px */}
+          <div style={{fontSize:22,fontWeight:800,color:phaseColor,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(Math.round(corpus))}</div>
         </div>
-        {phase==="accumulation"&&<><div style={{width:1,height:56,background:t.border,flexShrink:0}}/><div><div style={{fontSize:16,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:4,fontWeight:600}}>{retireAge-sliderAge} years to retirement</div><div style={{fontSize:19,fontWeight:700,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif"}}>SIP: {fmtINR(result.monthlySIP)}/mo</div></div></>}
-        {phase==="withdrawal"&&<><div style={{width:1,height:56,background:t.border,flexShrink:0}}/><div><div style={{fontSize:16,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:4,fontWeight:600}}>Monthly withdrawal</div><div style={{fontSize:19,fontWeight:700,color:t.red,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.futureMonthlyExpense)}/mo</div></div></>}
+        {phase==="accumulation"&&<><div style={{width:1,height:48,background:t.border,flexShrink:0}}/><div>
+          {/* FIX font size: was 16px → 13px */}
+          <div style={{fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:3,fontWeight:600}}>{retireAge-sliderAge} years to retirement</div>
+          {/* FIX font size: was 19px → 15px */}
+          <div style={{fontSize:15,fontWeight:700,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif"}}>SIP: {fmtINR(result.monthlySIP)}/mo</div>
+        </div></>}
+        {phase==="withdrawal"&&<><div style={{width:1,height:48,background:t.border,flexShrink:0}}/><div>
+          <div style={{fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:3,fontWeight:600}}>Monthly withdrawal</div>
+          <div style={{fontSize:15,fontWeight:700,color:t.red,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.futureMonthlyExpense)}/mo</div>
+        </div></>}
       </div>
-      <div style={{marginBottom:12}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:t.textMuted,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600}}><span>₹0</span><span>Peak: {fmtINR(maxCorpus)}</span></div>
+      <div style={{marginBottom:10}}>
+        {/* FIX font size: was 15px → 12px */}
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:t.textMuted,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600}}><span>₹0</span><span>Peak: {fmtINR(maxCorpus)}</span></div>
         <div style={{height:10,background:t.border,borderRadius:5,overflow:"hidden"}}><div style={{width:`${Math.min(100,(corpus/maxCorpus)*100)}%`,height:"100%",background:`linear-gradient(90deg,${phaseColor}88,${phaseColor})`,borderRadius:5,transition:"width 0.1s"}}/></div>
       </div>
       <div style={{position:"relative",marginTop:32,marginBottom:8}}>
         {[{age:currentAge,label:"Start",color:"#4f7ec4"},{age:retireAge,label:"Retirement",color:t.green},{age:lifeExp,label:"Life exp.",color:t.red}].map(m=>(
-          <div key={m.age} style={{position:"absolute",top:-24,left:`${((m.age-currentAge)/(lifeExp-currentAge))*100}%`,transform:"translateX(-50%)",fontSize:15,color:m.color,fontWeight:700,fontFamily:"Montserrat,Arial,sans-serif",whiteSpace:"nowrap" as const}}>{m.label}</div>
+          <div key={m.age} style={{position:"absolute",top:-22,left:`${((m.age-currentAge)/(lifeExp-currentAge))*100}%`,transform:"translateX(-50%)",fontSize:12,color:m.color,fontWeight:700,fontFamily:"Montserrat,Arial,sans-serif",whiteSpace:"nowrap" as const}}>{m.label}</div>
         ))}
         <div style={{height:6,background:t.border,borderRadius:3}}><div style={{width:`${pct}%`,height:"100%",background:`linear-gradient(90deg,${t.accent},${t.green})`,borderRadius:3,transition:"width 0.05s"}}/></div>
         {[{age:currentAge,color:"#4f7ec4"},{age:retireAge,color:t.green},{age:lifeExp,color:t.red}].map(m=>(
@@ -263,7 +294,8 @@ function InteractiveTimeline({result,form,t}:{result:any;form:FormState;t:Theme}
         <input type="range" min={currentAge} max={lifeExp} step={1} value={sliderAge} onChange={e=>setSliderAge(Number(e.target.value))} aria-label="Explore corpus by age" suppressHydrationWarning
           style={{position:"absolute",left:0,top:-6,width:"100%",opacity:0,height:22,cursor:"pointer",margin:0}}/>
       </div>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:16,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:500}}><span>Age {currentAge}</span><span style={{color:t.accent,fontWeight:600}}>← Drag to explore →</span><span>Age {lifeExp}</span></div>
+      {/* FIX font size: was 16px → 13px */}
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:500}}><span>Age {currentAge}</span><span style={{color:t.accent,fontWeight:600}}>← Drag to explore →</span><span>Age {lifeExp}</span></div>
     </section>
   );
 }
@@ -276,40 +308,45 @@ function SIPLumpsumToggle({result,form,t}:{result:any;form:FormState;t:Theme}) {
   const totalInvested=result.monthlySIP*result.yearsToRetirement*12;
   const returns=Math.max(0,result.requiredCorpus-totalInvested);
   return (
-    <div style={{background:t.surfaceCard,borderRadius:14,padding:"20px 24px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:28}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap" as const,gap:10}}>
+    <div style={{background:t.surfaceCard,borderRadius:14,padding:"18px 22px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:28}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap" as const,gap:10}}>
         <div>
-          <h3 style={{fontSize:19,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif",margin:0}}>SIP vs Lumpsum Comparison</h3>
-          <p style={{fontSize:16,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginTop:3}}>Two paths to the same retirement corpus</p>
+          {/* FIX font size: was 19px → 15px */}
+          <h3 style={{fontSize:15,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif",margin:0}}>SIP vs Lumpsum Comparison</h3>
+          {/* FIX font size: was 16px → 13px */}
+          <p style={{fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginTop:3}}>Two paths to the same retirement corpus</p>
         </div>
         <div style={{display:"flex",background:t.surfaceAlt,borderRadius:8,padding:3,gap:3}}>
           {(["sip","lumpsum"] as const).map(m=>(
-            <button key={m} onClick={()=>setMode(m)} style={{padding:"7px 18px",borderRadius:6,border:"none",cursor:"pointer",fontSize:17,fontWeight:mode===m?700:500,background:mode===m?t.accent:"transparent",color:mode===m?"#fff":t.textSub,fontFamily:"Montserrat,Arial,sans-serif",transition:"all 0.15s"}}>
+            <button key={m} onClick={()=>setMode(m)} style={{padding:"6px 15px",borderRadius:6,border:"none",cursor:"pointer",fontSize:13,fontWeight:mode===m?700:500,background:mode===m?t.accent:"transparent",color:mode===m?"#fff":t.textSub,fontFamily:"Montserrat,Arial,sans-serif",transition:"all 0.15s"}}>
               {m==="sip"?"Monthly SIP":"Lumpsum Today"}
             </button>
           ))}
         </div>
       </div>
       {mode==="sip"?(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10}}>
           {[{label:"Monthly investment",value:fmtINR(result.monthlySIP),color:t.accent},{label:"Total invested",value:fmtINR(totalInvested),color:t.textSub},{label:"Estimated returns",value:fmtINR(returns),color:t.green},{label:"Final corpus",value:fmtINR(result.requiredCorpus),color:t.green}].map(c=>(
-            <div key={c.label} style={{background:t.surfaceAlt,borderRadius:10,padding:"13px 15px",border:`1px solid ${t.border}`}}>
-              <div style={{fontSize:14,color:t.textMuted,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600}}>{c.label}</div>
-              <div style={{fontSize:23,fontWeight:800,color:c.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{c.value}</div>
+            <div key={c.label} style={{background:t.surfaceAlt,borderRadius:10,padding:"12px 14px",border:`1px solid ${t.border}`}}>
+              {/* FIX font size: was 14px → 11px */}
+              <div style={{fontSize:11,color:t.textMuted,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600}}>{c.label}</div>
+              {/* FIX font size: was 23px → 18px */}
+              <div style={{fontSize:18,fontWeight:800,color:c.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{c.value}</div>
             </div>
           ))}
         </div>
       ):(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10}}>
           {[{label:"Lumpsum invest today",value:fmtINR(lumpsumNow),color:t.accent},{label:"Grows to (corpus)",value:fmtINR(result.requiredCorpus),color:t.green},{label:"Years to grow",value:`${result.yearsToRetirement} yrs`,color:t.textSub},{label:"Assumed return",value:`${form.preReturn}% p.a.`,color:t.textSub}].map(c=>(
-            <div key={c.label} style={{background:t.surfaceAlt,borderRadius:10,padding:"13px 15px",border:`1px solid ${t.border}`}}>
-              <div style={{fontSize:14,color:t.textMuted,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600}}>{c.label}</div>
-              <div style={{fontSize:23,fontWeight:800,color:c.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{c.value}</div>
+            <div key={c.label} style={{background:t.surfaceAlt,borderRadius:10,padding:"12px 14px",border:`1px solid ${t.border}`}}>
+              <div style={{fontSize:11,color:t.textMuted,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600}}>{c.label}</div>
+              <div style={{fontSize:18,fontWeight:800,color:c.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{c.value}</div>
             </div>
           ))}
         </div>
       )}
-      <p style={{fontSize:15,color:t.textMuted,marginTop:12,fontFamily:"Montserrat,Arial,sans-serif"}}>* Illustrative only. Lumpsum uses same pre-retirement return assumption.</p>
+      {/* FIX font size: was 15px → 12px */}
+      <p style={{fontSize:12,color:t.textMuted,marginTop:10,fontFamily:"Montserrat,Arial,sans-serif"}}>* Illustrative only. Lumpsum uses same pre-retirement return assumption.</p>
     </div>
   );
 }
@@ -380,7 +417,7 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
   };
   return (
     <button onClick={generate} disabled={loading} id="pdf-btn" aria-label="Download PDF"
-      style={{display:"inline-flex",alignItems:"center",gap:8,background:loading?"#64748b":t.accentGrad,color:"#fff",border:"none",borderRadius:10,padding:"13px 24px",fontSize:18,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"Montserrat,Arial,sans-serif",boxShadow:loading?"none":`0 4px 14px ${t.accent}40`,transition:"all 0.15s"}}>
+      style={{display:"inline-flex",alignItems:"center",gap:8,background:loading?"#64748b":t.accentGrad,color:"#fff",border:"none",borderRadius:10,padding:"11px 20px",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"Montserrat,Arial,sans-serif",boxShadow:loading?"none":`0 4px 14px ${t.accent}40`,transition:"all 0.15s"}}>
       {loading?"⏳ Generating…":"⬇ Download Report (PDF)"}
     </button>
   );
@@ -401,32 +438,38 @@ function LearnTab({t}:{t:Theme}) {
   ];
   return (
     <section style={{marginTop:32}} aria-labelledby="learn-h">
-      <div style={{borderBottom:`3px solid ${t.accent}`,paddingBottom:16,marginBottom:28}}>
-        <h2 id="learn-h" style={{fontSize:28,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"-0.3px"}}>Retirement Planning 101</h2>
-        <p style={{fontSize:18,color:t.textSub,marginTop:6,fontFamily:"Montserrat,Arial,sans-serif"}}>New to retirement planning? These explainers decode every concept used in your report — including how to set up the AI chatbot.</p>
+      <div style={{borderBottom:`3px solid ${t.accent}`,paddingBottom:14,marginBottom:24}}>
+        {/* FIX font size: was 28px → 22px */}
+        <h2 id="learn-h" style={{fontSize:22,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"-0.3px"}}>Retirement Planning 101</h2>
+        {/* FIX font size: was 18px → 14px; FIX: Georgia removed → Arial */}
+        <p style={{fontSize:14,color:t.textSub,marginTop:5,fontFamily:"Arial,sans-serif"}}>New to retirement planning? These explainers decode every concept used in your report — including how to set up the AI chatbot.</p>
       </div>
       <div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
         {sections.map(s=>(
           <div key={s.id} style={{border:`1.5px solid ${open===s.id?t.accent:t.border}`,borderRadius:12,overflow:"hidden",background:open===s.id?t.surfaceAlt:t.surfaceCard,transition:"border-color 0.15s"}}>
             <button onClick={()=>setOpen(open===s.id?null:s.id)} aria-expanded={open===s.id}
-              style={{width:"100%",padding:"18px 22px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"transparent",border:"none",cursor:"pointer",textAlign:"left" as const}}>
-              <span style={{fontSize:19,fontWeight:700,color:t.text,fontFamily:"Montserrat,Arial,sans-serif"}}>{s.title}</span>
-              <span style={{fontSize:20,color:t.accent,fontWeight:700,transform:open===s.id?"rotate(180deg)":"rotate(0)",transition:"transform 0.2s"}}>⌄</span>
+              style={{width:"100%",padding:"15px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"transparent",border:"none",cursor:"pointer",textAlign:"left" as const}}>
+              {/* FIX font size: was 19px → 15px */}
+              <span style={{fontSize:15,fontWeight:700,color:t.text,fontFamily:"Montserrat,Arial,sans-serif"}}>{s.title}</span>
+              <span style={{fontSize:18,color:t.accent,fontWeight:700,transform:open===s.id?"rotate(180deg)":"rotate(0)",transition:"transform 0.2s"}}>⌄</span>
             </button>
             {open===s.id&&(
-              <div style={{padding:"4px 22px 22px",borderTop:`1px solid ${t.border}`}}>
+              <div style={{padding:"4px 20px 20px",borderTop:`1px solid ${t.border}`}}>
                 {s.content.split("\n").map((line,i)=>(
                   line.trim()===""?<br key={i}/>:
-                  line.startsWith("•")?(<div key={i} style={{display:"flex",gap:8,marginBottom:6}}><span style={{color:t.accent,fontWeight:700,flexShrink:0}}>•</span><span style={{fontSize:18,color:t.textSub,lineHeight:1.65,fontFamily:"Georgia,serif"}}>{line.slice(1).trim()}</span></div>):
-                  /^\d+\./.test(line)?(<div key={i} style={{display:"flex",gap:8,marginBottom:6}}><span style={{color:t.accent,fontWeight:700,flexShrink:0,minWidth:20}}>{line.match(/^\d+/)?.[0]}.</span><span style={{fontSize:18,color:t.textSub,lineHeight:1.65,fontFamily:"Georgia,serif"}}>{line.replace(/^\d+\./,"").trim()}</span></div>):
-                  (<p key={i} style={{fontSize:18,color:t.textSub,lineHeight:1.65,marginBottom:8,fontFamily:"Georgia,serif"}}>{line}</p>)
+                  line.startsWith("•")?(<div key={i} style={{display:"flex",gap:8,marginBottom:5}}><span style={{color:t.accent,fontWeight:700,flexShrink:0}}>•</span>
+                    <span style={{fontSize:14,color:t.textSub,lineHeight:1.65,fontFamily:"Arial,sans-serif"}}>{line.slice(1).trim()}</span></div>):
+                  /^\d+\./.test(line)?(<div key={i} style={{display:"flex",gap:8,marginBottom:5}}><span style={{color:t.accent,fontWeight:700,flexShrink:0,minWidth:18}}>{line.match(/^\d+/)?.[0]}.</span>
+                    <span style={{fontSize:14,color:t.textSub,lineHeight:1.65,fontFamily:"Arial,sans-serif"}}>{line.replace(/^\d+\./,"").trim()}</span></div>):
+                  (<p key={i} style={{fontSize:14,color:t.textSub,lineHeight:1.65,marginBottom:6,fontFamily:"Arial,sans-serif"}}>{line}</p>)
                 ))}
               </div>
             )}
           </div>
         ))}
       </div>
-      <div style={{marginTop:24,padding:"18px 22px",background:`${t.accent}15`,borderRadius:12,border:`1.5px solid ${t.accent}30`,fontSize:18,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1.6}}>
+      {/* FIX font size: was 18px → 14px */}
+      <div style={{marginTop:22,padding:"16px 20px",background:`${t.accent}15`,borderRadius:12,border:`1.5px solid ${t.accent}30`,fontSize:14,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1.6}}>
         <strong>💡 Key takeaway:</strong> The earlier you start, the smaller your monthly investment. Time is your most powerful financial asset.
       </div>
     </section>
@@ -446,19 +489,24 @@ export default function Home() {
   const [persona,setPersona]=useState("");
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
-  // FIX 4: validation error state
   const [formError,setFormError]=useState<string|null>(null);
 
-  // ── FIX 2: Tour always auto-shows on every page load ──────────
+  // ── Tour: derive visible steps based on whether results exist ──
+  // Pre-results steps always show; post-results steps only after Calculate
+  const visibleTour = TOUR_ALL.filter(s => !s.requiresResults || result !== null);
+
+  // ── Auto-show tour on every page load (pre-results steps only) ─
   useEffect(()=>{
     const timer = setTimeout(()=> setTourStep(0), 800);
     return ()=> clearTimeout(timer);
   },[]);
 
   const doneTour=()=>setTourStep(null);
-  const nextTour=()=>{if(tourStep!==null&&tourStep<TOUR.length-1)setTourStep(tourStep+1);else doneTour();};
+  const nextTour=()=>{
+    if(tourStep!==null && tourStep < visibleTour.length-1) setTourStep(tourStep+1);
+    else doneTour();
+  };
 
-  // FIX 4: validation
   const validateForm = (): string | null => {
     const age    = Number(form.currentAge);
     const retAge = Number(form.retirementAge);
@@ -486,7 +534,6 @@ export default function Home() {
     return null;
   };
 
-  // FIX 4: snap field to min on blur
   const handleBlurClamp = (name: string, min: number) => {
     setForm(prev => {
       const val = parseFloat(prev[name as keyof FormState]);
@@ -495,7 +542,6 @@ export default function Home() {
     });
   };
 
-  // FIX 4: strip leading minus on change
   const handleChange=(e:React.ChangeEvent<HTMLInputElement>)=>{
     const {name,value}=e.target;
     const safe = value.startsWith("-") ? value.slice(1) : value;
@@ -506,7 +552,6 @@ export default function Home() {
   const applyPersona=(p:typeof PERSONAS[number])=>{setPersona(p.label);setForm({...p.values});};
 
   const calculate=async()=>{
-    // FIX 4: validate first
     setFormError(null);
     const validationError = validateForm();
     if (validationError) { setFormError(validationError); return; }
@@ -525,15 +570,15 @@ export default function Home() {
 
   const numericInputs={currentAge:Number(form.currentAge),retirementAge:Number(form.retirementAge),lifeExpectancy:Number(form.lifeExpectancy),monthlyExpense:Number(form.monthlyExpense),inflationRate:Number(form.inflationRate)/100,preReturn:Number(form.preReturn)/100,postReturn:Number(form.postReturn)/100};
   const risk=result?getRisk(result.successProbability):null;
-  const thS:React.CSSProperties={padding:"13px 15px",background:darkMode?"#1e3a6e":"#224c87",color:"#fff",fontWeight:700,fontSize:16,textAlign:"left" as const,whiteSpace:"nowrap" as const,fontFamily:"Montserrat,Arial,sans-serif"};
-  const tdS=(hi:boolean):React.CSSProperties=>({padding:"13px 15px",fontSize:17,border:`1px solid ${t.border}`,background:hi?t.tableHi:t.surfaceCard,fontWeight:hi?800:400,color:hi?t.accent:t.textSub,fontFamily:"Montserrat,Arial,sans-serif"});
+  const thS:React.CSSProperties={padding:"11px 13px",background:darkMode?"#1e3a6e":"#224c87",color:"#fff",fontWeight:700,fontSize:13,textAlign:"left" as const,whiteSpace:"nowrap" as const,fontFamily:"Montserrat,Arial,sans-serif"};
+  const tdS=(hi:boolean):React.CSSProperties=>({padding:"11px 13px",fontSize:13,border:`1px solid ${t.border}`,background:hi?t.tableHi:t.surfaceCard,fontWeight:hi?800:400,color:hi?t.accent:t.textSub,fontFamily:"Montserrat,Arial,sans-serif"});
 
   return (
     <>
       <a href="#main-content" className="skip-link">Skip to main content</a>
 
-      {/* FIX 2: Always shows on load, ❓ button re-triggers it */}
-      {tourStep!==null&&<TourTooltip step={tourStep} onNext={nextTour} onSkip={doneTour} total={TOUR.length} t={t}/>}
+      {/* Tour — uses visibleTour so post-results steps only appear after Calculate */}
+      {tourStep!==null&&<TourTooltip step={tourStep} onNext={nextTour} onSkip={doneTour} total={visibleTour.length} t={t} steps={visibleTour}/>}
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
@@ -563,76 +608,82 @@ export default function Home() {
       {/* Nav */}
       <nav aria-label="Main navigation" style={{borderBottom:`1px solid ${t.border}`,background:t.navBg,position:"sticky",top:0,zIndex:100,boxShadow:t.navShadow,transition:"background 0.25s"}}>
         <div style={{maxWidth:960,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",gap:4}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,padding:"13px 0",marginRight:"auto"}}>
-            <div style={{width:34,height:34,borderRadius:9,background:t.accentGrad,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:17,fontWeight:800,fontFamily:"Montserrat,Arial,sans-serif"}}>F</div>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0",marginRight:"auto"}}>
+            <div style={{width:32,height:32,borderRadius:9,background:t.accentGrad,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:15,fontWeight:800,fontFamily:"Montserrat,Arial,sans-serif"}}>F</div>
             <div>
-              <div style={{fontSize:19,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1}}>FinCal</div>
-              <div style={{fontSize:14,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"0.5px"}}>TECHNEX '26</div>
+              {/* FIX font size: was 19px → 15px */}
+              <div style={{fontSize:15,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1}}>FinCal</div>
+              {/* FIX font size: was 14px → 11px */}
+              <div style={{fontSize:11,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"0.5px"}}>TECHNEX '26</div>
             </div>
           </div>
           <div role="tablist" aria-label="Page sections" style={{display:"flex"}}>
             {([{key:"calculator",label:"Calculator",icon:"🧮"},{key:"comparison",label:"Compare",icon:"⚖️",id:"compare-tab"},{key:"learn",label:"Learn",icon:"📚",id:"learn-tab"}] as {key:NavTab;label:string;icon:string;id?:string}[]).map(tb=>(
               <button key={tb.key} role="tab" aria-selected={activeTab===tb.key} onClick={()=>setActiveTab(tb.key)} id={tb.id}
-                style={{padding:"15px 14px",fontSize:17,fontWeight:activeTab===tb.key?700:500,color:activeTab===tb.key?t.accent:t.textMuted,background:"none",border:"none",borderBottom:activeTab===tb.key?`3px solid ${t.accent}`:"3px solid transparent",cursor:"pointer",borderRadius:0,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:-1,transition:"color 0.15s,border-color 0.15s",display:"flex",alignItems:"center",gap:5}}>
+                style={{padding:"13px 12px",fontSize:13,fontWeight:activeTab===tb.key?700:500,color:activeTab===tb.key?t.accent:t.textMuted,background:"none",border:"none",borderBottom:activeTab===tb.key?`3px solid ${t.accent}`:"3px solid transparent",cursor:"pointer",borderRadius:0,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:-1,transition:"color 0.15s,border-color 0.15s",display:"flex",alignItems:"center",gap:5}}>
                 <span aria-hidden="true">{tb.icon}</span>{tb.label}
               </button>
             ))}
           </div>
-          {/* FIX 2: ❓ button re-starts tour */}
           <button id="tour-btn" onClick={()=>setTourStep(0)} aria-label="Start guided tour" title="Start tour"
-            style={{width:32,height:32,borderRadius:8,background:t.surfaceAlt,border:`1px solid ${t.border}`,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>❓</button>
+            style={{width:30,height:30,borderRadius:8,background:t.surfaceAlt,border:`1px solid ${t.border}`,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>❓</button>
           <button id="darkmode-btn" onClick={()=>setDarkMode(v=>!v)} aria-label={darkMode?"Light mode":"Dark mode"}
             style={{width:46,height:26,borderRadius:13,background:darkMode?t.accent:"#e5e7eb",border:"none",cursor:"pointer",position:"relative" as const,transition:"background 0.2s",flexShrink:0}}>
-            <span style={{position:"absolute",top:3,left:darkMode?22:3,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:"0 1px 4px rgba(0,0,0,0.25)"}}>
+            <span style={{position:"absolute",top:3,left:darkMode?22:3,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,0.25)"}}>
               {darkMode?"🌙":"☀️"}
             </span>
           </button>
         </div>
       </nav>
 
-      <main id="main-content" style={{maxWidth:960,margin:"0 auto",padding:"32px 20px 100px"}}>
+      <main id="main-content" style={{maxWidth:960,margin:"0 auto",padding:"28px 20px 100px"}}>
 
         {activeTab==="calculator"&&(
           <>
-            <header style={{marginBottom:32}}>
-              <h1 style={{fontSize:32,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"-0.5px",margin:0}}>Retirement Planning Calculator</h1>
-              <p style={{fontSize:18,color:t.textSub,marginTop:8,lineHeight:1.65,fontFamily:"Georgia,serif",maxWidth:680}}>Estimate how much you need to save for a comfortable retirement — with inflation buckets, 1,000 Monte Carlo simulations, and personalised SIP recommendations.</p>
-              <p style={{fontSize:16,color:t.textMuted,marginTop:6,fontFamily:"Montserrat,Arial,sans-serif"}}>ⓘ All values are <strong>illustrative estimates</strong> for educational purposes only. Not investment advice.</p>
+            <header style={{marginBottom:28}}>
+              {/* FIX font size: was 32px → 26px */}
+              <h1 style={{fontSize:26,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"-0.5px",margin:0}}>Retirement Planning Calculator</h1>
+              {/* FIX font size: was 18px → 14px; FIX: Georgia removed → Arial */}
+              <p style={{fontSize:14,color:t.textSub,marginTop:7,lineHeight:1.65,fontFamily:"Arial,sans-serif",maxWidth:680}}>Estimate how much you need to save for a comfortable retirement — with inflation buckets, 1,000 Monte Carlo simulations, and personalised SIP recommendations.</p>
+              {/* FIX font size: was 16px → 13px */}
+              <p style={{fontSize:13,color:t.textMuted,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif"}}>ⓘ All values are <strong>illustrative estimates</strong> for educational purposes only. Not investment advice.</p>
             </header>
 
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:28}}>
-              <section aria-labelledby="persona-h" id="persona-sec">
-                <h2 id="persona-h" style={{fontSize:18,fontWeight:700,color:t.textSub,marginBottom:10,fontFamily:"Montserrat,Arial,sans-serif"}}>🚀 Quick start — pick a profile</h2>
-                <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
-                  {PERSONAS.map(p=>(
-                    <button key={p.label} onClick={()=>applyPersona(p)} aria-pressed={persona===p.label}
-                      style={{background:persona===p.label?t.accent:t.surfaceCard,color:persona===p.label?"#fff":t.text,border:persona===p.label?`2px solid ${t.accent}`:`1.5px solid ${t.border}`,borderRadius:10,padding:"11px 16px",fontWeight:600,cursor:"pointer",fontSize:17,textAlign:"left" as const,transition:"all 0.15s",fontFamily:"Montserrat,Arial,sans-serif",display:"flex",alignItems:"center",gap:10,width:"100%"}}>
-                      <span style={{fontSize:20,flexShrink:0}}>{p.icon}</span>
-                      <span><span style={{display:"block"}}>{p.label}</span><span style={{fontSize:15,fontWeight:400,opacity:0.75}}>{p.desc}</span></span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-              <section aria-labelledby="scenario-h">
-                <h2 id="scenario-h" style={{fontSize:18,fontWeight:700,color:t.textSub,marginBottom:10,fontFamily:"Montserrat,Arial,sans-serif"}}>📈 Investment scenario</h2>
-                <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
-                  {(Object.entries(SCENARIOS) as [keyof typeof SCENARIOS,typeof SCENARIOS[keyof typeof SCENARIOS]][]).map(([key,s])=>(
-                    <button key={key} onClick={()=>applyScenario(key)} aria-pressed={scenario===key}
-                      style={{background:scenario===key?t.accent:t.surfaceCard,color:scenario===key?"#fff":t.text,border:scenario===key?`2px solid ${t.accent}`:`1.5px solid ${t.border}`,borderRadius:10,padding:"11px 16px",fontWeight:scenario===key?700:500,cursor:"pointer",fontSize:17,fontFamily:"Montserrat,Arial,sans-serif",transition:"all 0.15s",textAlign:"left" as const,display:"flex",alignItems:"center",gap:10,width:"100%"}}>
-                      <span style={{fontSize:20,flexShrink:0}}>{s.icon}</span>
-                      <span><span style={{display:"block"}}>{s.label}</span><span style={{fontSize:15,fontWeight:400,opacity:0.75}}>Pre: {s.preReturn}% / Post: {s.postReturn}% · {s.desc}</span></span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            </div>
+            {/* Persona — heading then 3 buttons side by side */}
+            <section aria-labelledby="persona-h" id="persona-sec" style={{marginBottom:16}}>
+              <h2 id="persona-h" style={{fontSize:14,fontWeight:700,color:t.textSub,marginBottom:9,fontFamily:"Montserrat,Arial,sans-serif"}}>🚀 Quick start — pick a profile</h2>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                {PERSONAS.map(p=>(
+                  <button key={p.label} onClick={()=>applyPersona(p)} aria-pressed={persona===p.label}
+                    style={{background:persona===p.label?t.accent:t.surfaceCard,color:persona===p.label?"#fff":t.text,border:persona===p.label?`2px solid ${t.accent}`:`1.5px solid ${t.border}`,borderRadius:10,padding:"12px 14px",fontWeight:600,cursor:"pointer",fontSize:13,textAlign:"left" as const,transition:"all 0.15s",fontFamily:"Montserrat,Arial,sans-serif",display:"flex",alignItems:"center",gap:10,width:"100%"}}>
+                    <span style={{fontSize:20,flexShrink:0}}>{p.icon}</span>
+                    <span><span style={{display:"block",fontWeight:700}}>{p.label}</span><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>{p.desc}</span></span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* Scenario — heading then 3 buttons side by side */}
+            <section aria-labelledby="scenario-h" style={{marginBottom:24}}>
+              <h2 id="scenario-h" style={{fontSize:14,fontWeight:700,color:t.textSub,marginBottom:9,fontFamily:"Montserrat,Arial,sans-serif"}}>📈 Investment scenario</h2>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                {(Object.entries(SCENARIOS) as [keyof typeof SCENARIOS,typeof SCENARIOS[keyof typeof SCENARIOS]][]).map(([key,s])=>(
+                  <button key={key} onClick={()=>applyScenario(key)} aria-pressed={scenario===key}
+                    style={{background:scenario===key?t.accent:t.surfaceCard,color:scenario===key?"#fff":t.text,border:scenario===key?`2px solid ${t.accent}`:`1.5px solid ${t.border}`,borderRadius:10,padding:"12px 14px",fontWeight:scenario===key?700:500,cursor:"pointer",fontSize:13,fontFamily:"Montserrat,Arial,sans-serif",transition:"all 0.15s",textAlign:"left" as const,display:"flex",alignItems:"center",gap:10,width:"100%"}}>
+                    <span style={{fontSize:20,flexShrink:0}}>{s.icon}</span>
+                    <span><span style={{display:"block",fontWeight:700}}>{s.label}</span><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>Pre: {s.preReturn}% / Post: {s.postReturn}% · {s.desc}</span></span>
+                  </button>
+                ))}
+              </div>
+            </section>
 
             {/* Form */}
-            <section aria-labelledby="form-h" id="form-sec" style={{background:t.surfaceCard,borderRadius:14,padding:"26px 30px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:28}}>
-              <h2 id="form-h" style={{fontSize:20,fontWeight:700,color:t.accent,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Your details</h2>
-              <p style={{fontSize:17,color:t.textMuted,marginBottom:22,fontFamily:"Montserrat,Arial,sans-serif"}}>Click <strong style={{color:t.accent}}>?</strong> next to any field to learn why it matters.</p>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:"22px 30px"}}>
-                {/* FIX 4: all fields now have min + onBlurClamp */}
+            <section aria-labelledby="form-h" id="form-sec" style={{background:t.surfaceCard,borderRadius:14,padding:"24px 28px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:24}}>
+              {/* FIX font size: was 20px → 16px */}
+              <h2 id="form-h" style={{fontSize:16,fontWeight:700,color:t.accent,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Your details</h2>
+              {/* FIX font size: was 17px → 13px */}
+              <p style={{fontSize:13,color:t.textMuted,marginBottom:20,fontFamily:"Montserrat,Arial,sans-serif"}}>Click <strong style={{color:t.accent}}>?</strong> next to any field to learn why it matters.</p>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"18px 26px"}}>
                 <Field label="Current age (years)"                name="currentAge"     value={form.currentAge}     onChange={handleChange} onBlurClamp={handleBlurClamp} min={1}   hint="Your age today"                           fieldKey="currentAge"     t={t}/>
                 <Field label="Retirement age (years)"             name="retirementAge"  value={form.retirementAge}  onChange={handleChange} onBlurClamp={handleBlurClamp} min={1}   hint="Age you plan to stop working"            fieldKey="retirementAge"  t={t}/>
                 <Field label="Life expectancy (years)"            name="lifeExpectancy" value={form.lifeExpectancy} onChange={handleChange} onBlurClamp={handleBlurClamp} min={1}   hint="Plan until this age as a safety buffer"  fieldKey="lifeExpectancy" t={t}/>
@@ -644,102 +695,130 @@ export default function Home() {
                 <Field label="Annual SIP step-up (%) — optional" name="stepUpRate"     value={form.stepUpRate}     onChange={handleChange} onBlurClamp={handleBlurClamp} min={0}   hint="% increase in SIP each year. 0 to skip."  fieldKey="stepUpRate"     t={t}/>
               </div>
 
-              {/* FIX 4: inline validation error banner */}
               {formError&&(
-                <div role="alert" aria-live="assertive" style={{marginTop:18,padding:"13px 16px",background:`${t.red}12`,border:`1.5px solid ${t.red}50`,borderRadius:10,color:t.red,fontSize:18,fontWeight:500,fontFamily:"Montserrat,Arial,sans-serif",display:"flex",alignItems:"center",gap:8}}>
+                <div role="alert" aria-live="assertive" style={{marginTop:16,padding:"11px 14px",background:`${t.red}12`,border:`1.5px solid ${t.red}50`,borderRadius:10,color:t.red,fontSize:13,fontWeight:500,fontFamily:"Montserrat,Arial,sans-serif",display:"flex",alignItems:"center",gap:8}}>
                   ⚠️ {formError}
                 </div>
               )}
 
-              {error&&<p role="alert" style={{color:t.red,fontSize:18,marginTop:16,padding:"11px 15px",background:`${t.red}15`,borderRadius:8,border:`1px solid ${t.red}40`}}>⚠ {error}</p>}
+              {error&&<p role="alert" style={{color:t.red,fontSize:13,marginTop:14,padding:"10px 13px",background:`${t.red}15`,borderRadius:8,border:`1px solid ${t.red}40`}}>⚠ {error}</p>}
               <button onClick={calculate} disabled={loading} aria-busy={loading} id="calc-btn"
-                style={{marginTop:26,background:loading?"#64748b":t.accentGrad,color:"#fff",padding:"15px 48px",borderRadius:10,border:"none",fontSize:20,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"Montserrat,Arial,sans-serif",boxShadow:loading?"none":`0 4px 16px ${t.accent}45`,transition:"all 0.15s"}}>
+                style={{marginTop:22,background:loading?"#64748b":t.accentGrad,color:"#fff",padding:"13px 40px",borderRadius:10,border:"none",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"Montserrat,Arial,sans-serif",boxShadow:loading?"none":`0 4px 16px ${t.accent}45`,transition:"all 0.15s"}}>
                 {loading?"⏳ Calculating…":"Calculate my retirement plan →"}
               </button>
             </section>
 
-            {/* Results */}
+            {/* Results — only rendered after calculation */}
             {result&&(
               <section id="results-section" aria-label="Retirement calculation results" aria-live="polite">
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap" as const,gap:12,borderBottom:`3px solid ${t.accent}`,paddingBottom:16,marginBottom:28}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap" as const,gap:12,borderBottom:`3px solid ${t.accent}`,paddingBottom:14,marginBottom:24}}>
                   <div>
-                    <h2 style={{fontSize:28,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",margin:0}}>Your Retirement Plan</h2>
-                    <p style={{fontSize:17,color:t.textMuted,marginTop:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Based on assumed rates — illustrative projections only.</p>
+                    {/* FIX font size: was 28px → 22px */}
+                    <h2 style={{fontSize:22,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",margin:0}}>Your Retirement Plan</h2>
+                    {/* FIX font size: was 17px → 13px */}
+                    <p style={{fontSize:13,color:t.textMuted,marginTop:3,fontFamily:"Montserrat,Arial,sans-serif"}}>Based on assumed rates — illustrative projections only.</p>
                   </div>
                   <PDFExportButton result={result} inputs={numericInputs} t={t}/>
                 </div>
 
                 <ReadinessScore result={result} form={form} darkMode={darkMode}/>
 
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:28}}>
-                  {[
-                    {icon:"📅",title:"Future monthly expense",    value:fmtINR(result.futureMonthlyExpense),        sub:"Inflation-adjusted at retirement",highlight:false},
-                    {icon:"🏦",title:"Required retirement corpus", value:fmtINR(result.requiredCorpus),              sub:"Total corpus needed",highlight:true},
-                    {icon:"📈",title:"Monthly SIP (flat)",          value:fmtINR(result.monthlySIP),                  sub:"Constant monthly investment",highlight:false},
+                {(()=>{
+                  const cards = [
+                    {icon:"📅",title:"Future monthly expense",    value:fmtINR(result.futureMonthlyExpense),        sub:"Inflation-adjusted at retirement",highlight:false,color:undefined},
+                    {icon:"🏦",title:"Required retirement corpus", value:fmtINR(result.requiredCorpus),              sub:"Total corpus needed",highlight:true,color:undefined},
+                    {icon:"📈",title:"Monthly SIP (flat)",          value:fmtINR(result.monthlySIP),                  sub:"Constant monthly investment",highlight:false,color:undefined},
                     ...(result.monthlyStepUpSIP?[{icon:"⬆️",title:`SIP with ${form.stepUpRate}% step-up`,value:fmtINR(result.monthlyStepUpSIP),sub:"Lower start, rises yearly",highlight:true,color:undefined}]:[]),
                     ...(result.existingCorpusAtRetirement>0?[{icon:"💰",title:"Existing savings at retirement",value:fmtINR(result.existingCorpusAtRetirement),sub:"Current corpus compounded",highlight:false,color:t.green}]:[]),
                     {icon:"📆",title:"Corpus duration",             value:`${result.yearsCorpusLasts} yrs`,           sub:"Estimated years it lasts",highlight:false,color:undefined},
                     {icon:"🎲",title:"Success probability",         value:`${Math.round(result.successProbability)}%`,sub:"1,000 Monte Carlo sims",highlight:false,color:risk!.color},
-                  ].map((card,i)=>(
-                    <div key={i} className="result-anim">
-                      <ResultCard title={card.title} value={card.value} sub={card.sub} highlight={card.highlight} color={(card as any).color} icon={card.icon} t={t}/>
+                  ];
+                  // Split into rows of 3 — last row gets equal-width cards spanning full row
+                  const rows:typeof cards[] = [];
+                  for(let i=0;i<cards.length;i+=3) rows.push(cards.slice(i,i+3));
+                  return (
+                    <div style={{display:"flex",flexDirection:"column" as const,gap:12,marginBottom:24}}>
+                      {rows.map((row,ri)=>(
+                        <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${row.length},1fr)`,gap:12}}>
+                          {row.map((card,i)=>(
+                            <div key={i} className="result-anim" style={{animationDelay:`${(ri*3+i)*0.05+0.05}s`}}>
+                              <ResultCard title={card.title} value={card.value} sub={card.sub} highlight={card.highlight} color={card.color} icon={card.icon} t={t}/>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
 
-                <div style={{padding:"24px 28px",background:t.surfaceAlt,borderRadius:14,border:`2px solid ${t.borderAccent}`,marginBottom:28}}>
-                  <h3 style={{fontSize:20,fontWeight:800,color:t.accent,marginBottom:10,fontFamily:"Montserrat,Arial,sans-serif"}}>💵 Your estimated retirement paycheck</h3>
-                  <p style={{fontSize:19,color:t.text,lineHeight:1.8,fontFamily:"Georgia,serif"}}>A corpus of <strong style={{color:t.accent}}>{fmtINR(result.requiredCorpus)}</strong> could provide <strong style={{color:t.accent,fontSize:28,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.monthlyRetirementIncome)}</strong>/month at retirement.</p>
-                  <p style={{fontSize:17,color:t.textSub,marginTop:6,fontFamily:"Montserrat,Arial,sans-serif"}}>Equivalent to today's <strong>{fmtINR(result.monthlyIncomeInTodaysMoney)}</strong>/month in purchasing power.</p>
+                <div style={{padding:"20px 24px",background:t.surfaceAlt,borderRadius:14,border:`2px solid ${t.borderAccent}`,marginBottom:24}}>
+                  {/* FIX font size: was 20px → 16px */}
+                  <h3 style={{fontSize:16,fontWeight:800,color:t.accent,marginBottom:8,fontFamily:"Montserrat,Arial,sans-serif"}}>💵 Your estimated retirement paycheck</h3>
+                  {/* FIX font size: was 19px/28px → 14px/22px; FIX: Georgia removed → Arial */}
+                  <p style={{fontSize:14,color:t.text,lineHeight:1.8,fontFamily:"Arial,sans-serif"}}>A corpus of <strong style={{color:t.accent}}>{fmtINR(result.requiredCorpus)}</strong> could provide <strong style={{color:t.accent,fontSize:22,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.monthlyRetirementIncome)}</strong>/month at retirement.</p>
+                  {/* FIX font size: was 17px → 13px */}
+                  <p style={{fontSize:13,color:t.textSub,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif"}}>Equivalent to today's <strong>{fmtINR(result.monthlyIncomeInTodaysMoney)}</strong>/month in purchasing power.</p>
                 </div>
 
                 <InteractiveTimeline result={result} form={form} t={t}/>
                 <SIPLumpsumToggle result={result} form={form} t={t}/>
 
-                <section aria-labelledby="buckets-h" style={{marginBottom:28}}>
-                  <h3 id="buckets-h" style={{fontSize:19,fontWeight:700,color:t.accent,marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif"}}>Expense breakdown at retirement</h3>
-                  <p style={{fontSize:17,color:t.textSub,marginBottom:14,fontFamily:"Montserrat,Arial,sans-serif"}}>Different expense types inflate at different rates. Medical costs inflate fastest.</p>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+                <section aria-labelledby="buckets-h" style={{marginBottom:24}}>
+                  {/* FIX font size: was 19px → 15px */}
+                  <h3 id="buckets-h" style={{fontSize:15,fontWeight:700,color:t.accent,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>Expense breakdown at retirement</h3>
+                  {/* FIX font size: was 17px → 13px */}
+                  <p style={{fontSize:13,color:t.textSub,marginBottom:12,fontFamily:"Montserrat,Arial,sans-serif"}}>Different expense types inflate at different rates. Medical costs inflate fastest.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
                     <BucketCard label="General living"     value={fmtINR(result.expenseBuckets.general)}   rate="6%" color="#4f7ec4" pct="60% of expenses" icon="🛒" t={t}/>
                     <BucketCard label="Medical & health"   value={fmtINR(result.expenseBuckets.medical)}   rate="8%" color={t.red}   pct="25% of expenses" icon="🏥" t={t}/>
                     <BucketCard label="Lifestyle & travel" value={fmtINR(result.expenseBuckets.lifestyle)} rate="4%" color={t.green} pct="15% of expenses" icon="✈️" t={t}/>
                   </div>
                 </section>
 
-                <section aria-labelledby="risk-h" style={{marginBottom:28}}>
-                  <h3 id="risk-h" style={{fontSize:19,fontWeight:700,color:t.accent,marginBottom:10,fontFamily:"Montserrat,Arial,sans-serif"}}>Retirement risk level</h3>
-                  <div style={{display:"inline-flex",alignItems:"center",gap:14,background:risk!.bg,padding:"16px 24px",borderRadius:12,border:`1.5px solid ${risk!.border}`}}>
-                    <span style={{fontSize:28,fontWeight:800,color:risk!.color,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:1}}>{risk!.label}</span>
-                    <span style={{fontSize:26,fontWeight:700,color:risk!.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{Math.round(result.successProbability)}%</span>
-                    <span style={{fontSize:17,color:risk!.color,opacity:0.85,fontFamily:"Montserrat,Arial,sans-serif"}}>success probability</span>
+                <section aria-labelledby="risk-h" style={{marginBottom:24}}>
+                  {/* FIX font size: was 19px → 15px */}
+                  <h3 id="risk-h" style={{fontSize:15,fontWeight:700,color:t.accent,marginBottom:8,fontFamily:"Montserrat,Arial,sans-serif"}}>Retirement risk level</h3>
+                  <div style={{display:"inline-flex",alignItems:"center",gap:12,background:risk!.bg,padding:"14px 20px",borderRadius:12,border:`1.5px solid ${risk!.border}`}}>
+                    {/* FIX font size: was 28px → 20px */}
+                    <span style={{fontSize:20,fontWeight:800,color:risk!.color,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:1}}>{risk!.label}</span>
+                    <span style={{fontSize:20,fontWeight:700,color:risk!.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{Math.round(result.successProbability)}%</span>
+                    {/* FIX font size: was 17px → 13px */}
+                    <span style={{fontSize:13,color:risk!.color,opacity:0.85,fontFamily:"Montserrat,Arial,sans-serif"}}>success probability</span>
                   </div>
-                  <p style={{fontSize:17,color:t.textMuted,marginTop:8,fontFamily:"Montserrat,Arial,sans-serif"}}>SAFE ≥ 80% &nbsp;|&nbsp; MODERATE ≥ 50% &nbsp;|&nbsp; RISKY &lt; 50%</p>
+                  <p style={{fontSize:13,color:t.textMuted,marginTop:7,fontFamily:"Montserrat,Arial,sans-serif"}}>SAFE ≥ 80% &nbsp;|&nbsp; MODERATE ≥ 50% &nbsp;|&nbsp; RISKY &lt; 50%</p>
                 </section>
 
-                <section aria-labelledby="regret-h" style={{padding:"24px 28px",background:`${t.red}10`,borderRadius:14,border:`1.5px solid ${t.red}35`,marginBottom:28}}>
-                  <h3 id="regret-h" style={{fontSize:19,fontWeight:700,color:t.red,marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif"}}>⏰ Cost of waiting {result.regret.delayYears} years</h3>
-                  <p style={{fontSize:17,color:t.textMuted,marginBottom:16,fontFamily:"Montserrat,Arial,sans-serif"}}>What if you start {result.regret.delayYears} years from now instead of today?</p>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
+                <section aria-labelledby="regret-h" style={{padding:"20px 24px",background:`${t.red}10`,borderRadius:14,border:`1.5px solid ${t.red}35`,marginBottom:24}}>
+                  {/* FIX font size: was 19px → 15px */}
+                  <h3 id="regret-h" style={{fontSize:15,fontWeight:700,color:t.red,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>⏰ Cost of waiting {result.regret.delayYears} years</h3>
+                  {/* FIX font size: was 17px → 13px */}
+                  <p style={{fontSize:13,color:t.textMuted,marginBottom:14,fontFamily:"Montserrat,Arial,sans-serif"}}>What if you start {result.regret.delayYears} years from now instead of today?</p>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
                     {[
                       {label:"Start today",            value:fmtINR(result.regret.sipIfStartNow),   color:t.green,suffix:"/mo"},
                       {label:`Start in ${result.regret.delayYears} years`,value:fmtINR(result.regret.sipIfDelayed), color:t.red,  suffix:"/mo"},
                       {label:"Penalty per month",       value:fmtINR(result.regret.extraMonthlySIP), color:t.red,  suffix:"/mo"},
                       {label:"Total extra you'd pay",   value:fmtINR(result.regret.extraTotalPaid),  color:t.red,  suffix:""},
                     ].map(item=>(
-                      <div key={item.label} style={{background:t.surfaceCard,borderRadius:10,padding:"14px 16px",border:`1px solid ${t.border}`}}>
-                        <p style={{fontSize:15,color:t.textMuted,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600,textTransform:"uppercase" as const,letterSpacing:"0.5px"}}>{item.label}</p>
-                        <p style={{fontSize:24,fontWeight:800,color:item.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{item.value}<span style={{fontSize:16,fontWeight:400}}>{item.suffix}</span></p>
+                      <div key={item.label} style={{background:t.surfaceCard,borderRadius:10,padding:"12px 14px",border:`1px solid ${t.border}`}}>
+                        {/* FIX font size: was 15px → 12px */}
+                        <p style={{fontSize:12,color:t.textMuted,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600,textTransform:"uppercase" as const,letterSpacing:"0.5px"}}>{item.label}</p>
+                        {/* FIX font size: was 24px → 18px */}
+                        <p style={{fontSize:18,fontWeight:800,color:item.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{item.value}<span style={{fontSize:13,fontWeight:400}}>{item.suffix}</span></p>
                       </div>
                     ))}
                   </div>
-                  <p style={{fontSize:16,color:t.textMuted,marginTop:14,fontFamily:"Montserrat,Arial,sans-serif"}}>Illustrative only.</p>
+                  {/* FIX font size: was 16px → 12px */}
+                  <p style={{fontSize:12,color:t.textMuted,marginTop:12,fontFamily:"Montserrat,Arial,sans-serif"}}>Illustrative only.</p>
                 </section>
 
-                <section aria-labelledby="sens-h" style={{marginBottom:28}}>
-                  <h3 id="sens-h" style={{fontSize:19,fontWeight:700,color:t.accent,marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif"}}>Sensitivity analysis — monthly SIP required</h3>
-                  <p style={{fontSize:17,color:t.textSub,marginBottom:14,fontFamily:"Montserrat,Arial,sans-serif"}}>Each cell is recalculated from scratch for that exact combination of return and inflation. Highlighted = your current rates.</p>
+                <section aria-labelledby="sens-h" style={{marginBottom:24}}>
+                  {/* FIX font size: was 19px → 15px */}
+                  <h3 id="sens-h" style={{fontSize:15,fontWeight:700,color:t.accent,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>Sensitivity analysis — monthly SIP required</h3>
+                  {/* FIX font size: was 17px → 13px */}
+                  <p style={{fontSize:13,color:t.textSub,marginBottom:12,fontFamily:"Montserrat,Arial,sans-serif"}}>Each cell is recalculated from scratch for that exact combination of return and inflation. Highlighted = your current rates.</p>
                   <div style={{overflowX:"auto" as const}}>
-                    <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:17}} aria-label="Sensitivity analysis">
+                    <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:13}} aria-label="Sensitivity analysis">
                       <thead><tr>
                         <th scope="col" style={thS}>Return ↓ / Inflation →</th>
                         {result.sensitivity.inflationLabels.map((l:string)=><th scope="col" key={l} style={thS}>Inflation {l}</th>)}
@@ -758,18 +837,22 @@ export default function Home() {
                       </tbody>
                     </table>
                   </div>
-                  <p style={{fontSize:16,color:t.textMuted,marginTop:8,fontFamily:"Montserrat,Arial,sans-serif"}}>All values illustrative. Not a guarantee of returns.</p>
+                  {/* FIX font size: was 16px → 12px */}
+                  <p style={{fontSize:12,color:t.textMuted,marginTop:7,fontFamily:"Montserrat,Arial,sans-serif"}}>All values illustrative. Not a guarantee of returns.</p>
                 </section>
 
-                <section aria-labelledby="chart-h" style={{borderRadius:14,padding:"24px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:28,background:t.surfaceCard}}>
-                  <h2 id="chart-h" style={{fontSize:22,fontWeight:800,color:t.accent,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Retirement wealth projection</h2>
-                  <p style={{fontSize:17,color:t.textMuted,marginBottom:18,fontFamily:"Montserrat,Arial,sans-serif"}}>Corpus growth during working years, then drawdown during retirement.</p>
+                <section aria-labelledby="chart-h" style={{borderRadius:14,padding:"22px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:24,background:t.surfaceCard}}>
+                  {/* FIX font size: was 22px → 17px */}
+                  <h2 id="chart-h" style={{fontSize:17,fontWeight:800,color:t.accent,marginBottom:3,fontFamily:"Montserrat,Arial,sans-serif"}}>Retirement wealth projection</h2>
+                  {/* FIX font size: was 17px → 13px */}
+                  <p style={{fontSize:13,color:t.textMuted,marginBottom:16,fontFamily:"Montserrat,Arial,sans-serif"}}>Corpus growth during working years, then drawdown during retirement.</p>
                   <RetirementChart timeline={result.timeline} monteCarloFan={result.monteCarloFan} yearsToRetirement={result.yearsToRetirement} darkMode={darkMode}/>
                 </section>
 
-                <WhatIfSliders results={result} inputs={numericInputs}/>
+                {/* FIX: pass darkMode prop so WhatIfSliders adapts to theme */}
+                <WhatIfSliders results={result} inputs={numericInputs} darkMode={darkMode}/>
 
-                <div role="note" style={{marginTop:24,padding:"16px 20px",fontSize:16,color:t.textMuted,borderTop:`1px solid ${t.border}`,lineHeight:1.8,fontFamily:"Montserrat,Arial,sans-serif",background:t.surfaceAlt,borderRadius:10}}>
+                <div role="note" style={{marginTop:22,padding:"14px 18px",fontSize:12,color:t.textMuted,borderTop:`1px solid ${t.border}`,lineHeight:1.8,fontFamily:"Montserrat,Arial,sans-serif",background:t.surfaceAlt,borderRadius:10}}>
                   * All calculations are illustrative based on assumed rates of return and inflation.<br/>
                   * Returns are assumed annual rates and are not guaranteed in any way.<br/>
                   * All assumptions are user-editable and transparently disclosed.
@@ -786,7 +869,8 @@ export default function Home() {
 
       {result&&activeTab==="calculator"&&<RetirementChatbot result={result} form={form}/>}
 
-      <div role="contentinfo" aria-label="Legal disclaimer" style={{position:"fixed" as const,bottom:0,left:0,right:0,background:t.disclaimerBg,borderTop:`1px solid ${t.border}`,padding:"9px 24px",fontSize:16,color:t.textSub,zIndex:998,lineHeight:1.7,fontFamily:"Montserrat,Arial,sans-serif",transition:"background 0.25s"}}>
+      {/* FIX font size: was 16px → 12px (disclaimer should be small but readable per rules) */}
+      <div role="contentinfo" aria-label="Legal disclaimer" style={{position:"fixed" as const,bottom:0,left:0,right:0,background:t.disclaimerBg,borderTop:`1px solid ${t.border}`,padding:"8px 24px",fontSize:12,color:t.textSub,zIndex:998,lineHeight:1.7,fontFamily:"Arial,sans-serif",transition:"background 0.25s"}}>
         This tool has been designed for information purposes only. Actual results may vary depending on various factors involved in capital market. Investor should not consider above as a recommendation for any schemes of HDFC Mutual Fund. Past performance may or may not be sustained in future and is not a guarantee of any future returns.
       </div>
     </>
