@@ -6,25 +6,17 @@ function gaussian(mean, sd) {
     return mean + sd * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
 
-// ─── Future monthly expense after inflation ───────────────────────
 function futureExpense(currentExpense, inflationRate, years) {
     return currentExpense * Math.pow(1 + inflationRate, years);
 }
 
-// ─── Inflation buckets ────────────────────────────────────────────
 function futureExpenseWithBuckets(monthlyExpense, years) {
     const generalPortion   = monthlyExpense * 0.60;
     const medicalPortion   = monthlyExpense * 0.25;
     const lifestylePortion = monthlyExpense * 0.15;
-
-    const generalInflation   = 0.06;
-    const medicalInflation   = 0.08;
-    const lifestyleInflation = 0.04;
-
-    const futureGeneral   = generalPortion   * Math.pow(1 + generalInflation,   years);
-    const futureMedical   = medicalPortion   * Math.pow(1 + medicalInflation,   years);
-    const futureLifestyle = lifestylePortion * Math.pow(1 + lifestyleInflation, years);
-
+    const futureGeneral   = generalPortion   * Math.pow(1.06, years);
+    const futureMedical   = medicalPortion   * Math.pow(1.08, years);
+    const futureLifestyle = lifestylePortion * Math.pow(1.04, years);
     return {
         total:     futureGeneral + futureMedical + futureLifestyle,
         general:   Math.round(futureGeneral),
@@ -33,7 +25,6 @@ function futureExpenseWithBuckets(monthlyExpense, years) {
     };
 }
 
-// ─── Retirement corpus required ───────────────────────────────────
 function retirementCorpus(monthlyExpense, postReturn, retirementYears, inflationRate) {
     let corpus = 0;
     let annualExpense = monthlyExpense * 12;
@@ -44,14 +35,13 @@ function retirementCorpus(monthlyExpense, postReturn, retirementYears, inflation
     return corpus;
 }
 
-// ─── SIP required before retirement ──────────────────────────────
 function requiredSIP(targetCorpus, preReturn, years) {
     const monthlyRate = preReturn / 12;
     const months      = years * 12;
+    if (monthlyRate === 0) return targetCorpus / months;
     return (targetCorpus * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1);
 }
 
-// ─── Step-up SIP ──────────────────────────────────────────────────
 function stepUpSIPValue(initialSIP, annualReturn, stepUpRate, years) {
     const monthlyRate = annualReturn / 12;
     let totalFV = 0;
@@ -66,7 +56,6 @@ function stepUpSIPValue(initialSIP, annualReturn, stepUpRate, years) {
     return totalFV;
 }
 
-// ─── Required initial SIP with step-up ───────────────────────────
 function requiredStepUpSIP(targetCorpus, preReturn, years, stepUpRate) {
     let low = 0, high = targetCorpus;
     for (let i = 0; i < 100; i++) {
@@ -78,7 +67,6 @@ function requiredStepUpSIP(targetCorpus, preReturn, years, stepUpRate) {
     return (low + high) / 2;
 }
 
-// ─── Withdrawal simulation with inflation ─────────────────────────
 function withdrawalSimulation(corpus, annualExpense, postReturn, inflationRate, years) {
     let balance = corpus;
     for (let i = 0; i < years; i++) {
@@ -89,13 +77,11 @@ function withdrawalSimulation(corpus, annualExpense, postReturn, inflationRate, 
     return years;
 }
 
-// ─── Monte Carlo — final balance only (for success probability) ───
 function monteCarloSimulation(corpus, annualExpense, postReturn, inflationRate, years) {
     const simulations = 1000;
-    const volatility  = postReturn * 0.5; // Gaussian SD = 50% of mean
+    const volatility  = postReturn * 0.5;
     let success = 0;
     const allFinalBalances = [];
-
     for (let s = 0; s < simulations; s++) {
         let balance = corpus;
         let expense = annualExpense;
@@ -108,10 +94,8 @@ function monteCarloSimulation(corpus, annualExpense, postReturn, inflationRate, 
         allFinalBalances.push(balance);
         if (balance > 0) success++;
     }
-
     allFinalBalances.sort((a, b) => a - b);
     const n = allFinalBalances.length;
-
     return {
         successProbability: (success / simulations) * 100,
         p10: Math.round(allFinalBalances[Math.floor(n * 0.10)]),
@@ -120,47 +104,24 @@ function monteCarloSimulation(corpus, annualExpense, postReturn, inflationRate, 
     };
 }
 
-// ─── Monte Carlo — full fan chart (year-by-year percentile bands) ─
-// Returns data for BOTH accumulation and depletion phases
-function monteCarloFanChart(
-    monthlySIP,
-    yearsToRetirement,
-    retirementYears,
-    preReturn,
-    postReturn,
-    inflationRate,
-    annualExpense,
-    stepUpRate = 0,
-    simulations = 1000
-) {
+function monteCarloFanChart(monthlySIP, yearsToRetirement, retirementYears, preReturn, postReturn, inflationRate, annualExpense, stepUpRate = 0, simulations = 1000) {
     const preVolatility  = preReturn  * 0.5;
     const postVolatility = postReturn * 0.5;
     const totalYears     = yearsToRetirement + retirementYears;
-
     const allPaths = [];
-
     for (let s = 0; s < simulations; s++) {
         const path = new Array(totalYears);
-
-        // Accumulation phase
         let corpus     = 0;
         let currentSIP = monthlySIP;
-
         for (let y = 0; y < yearsToRetirement; y++) {
             const annualR  = Math.max(-0.3, gaussian(preReturn, preVolatility));
             const monthlyR = annualR / 12;
-            for (let m = 0; m < 12; m++) {
-                corpus += currentSIP;
-                corpus *= (1 + monthlyR);
-            }
+            for (let m = 0; m < 12; m++) { corpus += currentSIP; corpus *= (1 + monthlyR); }
             if (stepUpRate > 0) currentSIP *= (1 + stepUpRate);
             path[y] = Math.max(0, corpus);
         }
-
-        // Depletion phase — start from this sim's corpus at retirement
         let balance  = corpus;
-        let expense  = annualExpense / 12; // monthly
-
+        let expense  = annualExpense / 12;
         for (let y = 0; y < retirementYears; y++) {
             const annualR  = Math.max(-0.3, gaussian(postReturn, postVolatility));
             const monthlyR = annualR / 12;
@@ -171,11 +132,8 @@ function monteCarloFanChart(
             }
             path[yearsToRetirement + y] = Math.max(0, balance);
         }
-
         allPaths.push(path);
     }
-
-    // Build percentile bands year by year
     const result = [];
     for (let y = 0; y < totalYears; y++) {
         const vals = allPaths.map(p => p[y]).sort((a, b) => a - b);
@@ -192,45 +150,31 @@ function monteCarloFanChart(
             p95:   Math.round(vals[Math.floor(n * 0.95)])
         });
     }
-
     return result;
 }
 
-// ─── Retirement timeline ──────────────────────────────────────────
-function retirementTimeline(
-    currentAge, retirementAge, monthlySIP, preReturn,
-    corpus, retirementYears, monthlyExpense, inflationRate,
-    postReturn, stepUpRate = 0
-) {
+function retirementTimeline(currentAge, retirementAge, monthlySIP, preReturn, corpus, retirementYears, monthlyExpense, inflationRate, postReturn, stepUpRate = 0) {
     const timeline = [];
     let balance    = 0;
     const monthlyRate       = preReturn / 12;
     const yearsToRetirement = retirementAge - currentAge;
     let currentSIP = monthlySIP;
-
     for (let year = 1; year <= yearsToRetirement; year++) {
-        for (let m = 0; m < 12; m++) {
-            balance  = balance * (1 + monthlyRate);
-            balance += currentSIP;
-        }
+        for (let m = 0; m < 12; m++) { balance = balance * (1 + monthlyRate); balance += currentSIP; }
         if (stepUpRate > 0) currentSIP *= (1 + stepUpRate);
         timeline.push({ age: currentAge + year, corpus: Math.round(balance), phase: "accumulation" });
     }
-
     balance = corpus;
     let annualExpense = monthlyExpense * 12;
-
     for (let year = 1; year <= retirementYears; year++) {
         balance = balance * (1 + postReturn) - annualExpense;
         timeline.push({ age: retirementAge + year, corpus: Math.round(Math.max(balance, 0)), phase: "withdrawal" });
         annualExpense *= (1 + inflationRate);
         if (balance <= 0) break;
     }
-
     return timeline;
 }
 
-// ─── Regret calculator ────────────────────────────────────────────
 function regretCalculator(currentAge, retirementAge, targetCorpus, preReturn, delayYears = 5) {
     const yearsNormal  = retirementAge - currentAge;
     const yearsDelayed = Math.max(yearsNormal - delayYears, 1);
@@ -245,13 +189,35 @@ function regretCalculator(currentAge, retirementAge, targetCorpus, preReturn, de
     };
 }
 
-// ─── Sensitivity table ────────────────────────────────────────────
-function sensitivityTable(targetCorpus, yearsToRetirement, baseReturn, baseInflation) {
+// ── FIXED: sensitivityTable now correctly recalculates corpus for each
+//    inflation scenario (not just SIP at fixed corpus).
+//    The bug was that required corpus changes with inflation, so SIP must
+//    be recomputed end-to-end for every (return, inflation) combination.
+function sensitivityTable(
+    monthlyExpense,      // current monthly expense (before inflation)
+    yearsToRetirement,   // working years
+    retirementYears,     // post-retirement years
+    baseReturn,          // base pre-retirement annual return
+    baseInflation,       // base inflation rate
+    postReturn           // post-retirement return (kept constant)
+) {
     const returnOffsets    = [-0.02, 0, 0.02];
     const inflationOffsets = [-0.01, 0, 0.01];
-    const table = returnOffsets.map(ro =>
-        inflationOffsets.map(() => Math.round(requiredSIP(targetCorpus, baseReturn + ro, yearsToRetirement)))
-    );
+
+    const table = returnOffsets.map(ro => {
+        const adjReturn = baseReturn + ro;
+        return inflationOffsets.map(io => {
+            const adjInflation = baseInflation + io;
+            // Step 1: inflate monthly expense to retirement
+            const futureMonthly = monthlyExpense * Math.pow(1 + adjInflation, yearsToRetirement);
+            // Step 2: compute corpus needed (PV of annuity with inflation)
+            const corpus = retirementCorpus(futureMonthly, postReturn, retirementYears, adjInflation);
+            // Step 3: compute SIP to build that corpus
+            const sip = requiredSIP(corpus, adjReturn, yearsToRetirement);
+            return Math.round(sip);
+        });
+    });
+
     return {
         table,
         returnLabels:    returnOffsets.map(o => ((baseReturn + o) * 100).toFixed(0) + "%"),
@@ -260,16 +226,8 @@ function sensitivityTable(targetCorpus, yearsToRetirement, baseReturn, baseInfla
 }
 
 module.exports = {
-    futureExpense,
-    futureExpenseWithBuckets,
-    retirementCorpus,
-    requiredSIP,
-    stepUpSIPValue,
-    requiredStepUpSIP,
-    withdrawalSimulation,
-    monteCarloSimulation,
-    monteCarloFanChart,
-    retirementTimeline,
-    regretCalculator,
-    sensitivityTable
+    futureExpense, futureExpenseWithBuckets, retirementCorpus,
+    requiredSIP, stepUpSIPValue, requiredStepUpSIP,
+    withdrawalSimulation, monteCarloSimulation, monteCarloFanChart,
+    retirementTimeline, regretCalculator, sensitivityTable
 };

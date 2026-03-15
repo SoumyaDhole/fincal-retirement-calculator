@@ -10,9 +10,7 @@ app.use(express.json());
 app.get("/", (req, res) => res.send("FinCal Backend Running"));
 app.use("/api/retirement", retirementRoutes);
 
-// ─── Claude API Proxy ─────────────────────────────────────────────
-// Routes /api/chat to Anthropic with server-side API key.
-// Fixes 404 error — this route was missing from the original server.js.
+// ── Claude API Proxy ─────────────────────────────────────────────
 app.post("/api/chat", async (req, res) => {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -38,4 +36,4 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+app.listen(5000, () => console.log("✅ FinCal Backend running on port 5000"));

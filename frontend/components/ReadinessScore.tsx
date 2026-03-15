@@ -1,189 +1,94 @@
 "use client";
 
-const BLUE  = "#224c87";
-const RED   = "#da3832";
-const GREEN = "#1a7a4a";
-const AMBER = "#b45309";
-
-interface ReadinessScoreProps {
-    result: any;
-    form:   any;
+interface ReadinessProps {
+  result: any;
+  form: any;
+  darkMode?: boolean;
 }
 
-function scoreColor(score: number) {
-    if (score >= 75) return GREEN;
-    if (score >= 50) return BLUE;
-    if (score >= 30) return AMBER;
-    return RED;
-}
+export default function ReadinessScore({ result, form, darkMode = false }: ReadinessProps) {
+  const bg       = darkMode ? "#1a1d2a" : "#ffffff";
+  const border   = darkMode ? "#252836" : "#e5e7eb";
+  const text     = darkMode ? "#f1f5f9" : "#111827";
+  const textSub  = darkMode ? "#94a3b8" : "#4b5563";
+  const textMuted= darkMode ? "#4b5563" : "#9ca3af";
+  const trackBg  = darkMode ? "#252836" : "#e5e7eb";
+  const accent   = "#224c87";
 
-function scoreLabel(score: number) {
-    if (score >= 75) return "Excellent";
-    if (score >= 50) return "On Track";
-    if (score >= 30) return "Needs Attention";
-    return "At Risk";
-}
+  const successPct  = result.successProbability;
+  const corpusPct   = Math.min(100, (result.yearsCorpusLasts / result.retirementYears) * 100);
+  const sipRatio    = result.monthlySIP / Number(form.monthlyExpense);
+  const sipAfford   = Math.max(0, Math.min(100, (1 - sipRatio / 2) * 100));
+  const timeHorizon = Math.min(100, (result.yearsToRetirement / 35) * 100);
 
-export default function ReadinessScore({ result, form }: ReadinessScoreProps) {
+  const components = [
+    { label: "Success probability", score: Math.round((successPct / 100) * 35), max: 35, pct: successPct, desc: `${successPct.toFixed(0)}% Monte Carlo success rate`, color: "#224c87" },
+    { label: "Corpus duration",     score: Math.round((corpusPct / 100) * 25),  max: 25, pct: corpusPct,  desc: `Corpus may last ${result.yearsCorpusLasts} of ${result.retirementYears} needed years`, color: "#059669" },
+    { label: "SIP affordability",   score: Math.round((sipAfford / 100) * 20),  max: 20, pct: sipAfford,  desc: `SIP is ${Math.round(sipRatio * 100)}% of current monthly expense`, color: "#d97706" },
+    { label: "Time horizon",        score: Math.round((timeHorizon / 100) * 20),max: 20, pct: timeHorizon,desc: `${result.yearsToRetirement} years to grow your wealth`, color: "#7c3aed" },
+  ];
 
-    // ── Score components (each out of their max, sum = 100) ──────
-    // 1. Success probability          — 35 pts
-    const probScore = Math.round((result.successProbability / 100) * 35);
+  const totalScore = components.reduce((s, c) => s + c.score, 0);
+  const scoreLabel = totalScore >= 80 ? "Excellent" : totalScore >= 60 ? "Good" : totalScore >= 40 ? "Fair" : "Needs Work";
+  const scoreColor = totalScore >= 80 ? "#059669" : totalScore >= 60 ? "#224c87" : totalScore >= 40 ? "#d97706" : "#dc2626";
 
-    // 2. Corpus duration vs needed    — 25 pts
-    const neededYears    = Number(form.lifeExpectancy) - Number(form.retirementAge);
-    const durationScore  = Math.round(Math.min(result.yearsCorpusLasts / neededYears, 1) * 25);
+  // SVG gauge
+  const R = 54, CX = 70, CY = 70;
+  const startAngle = -180, endAngle = 0;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const arcPath = (pct: number) => {
+    const angle = startAngle + (endAngle - startAngle) * (pct / 100);
+    const x1 = CX + R * Math.cos(toRad(startAngle));
+    const y1 = CY + R * Math.sin(toRad(startAngle));
+    const x2 = CX + R * Math.cos(toRad(angle));
+    const y2 = CY + R * Math.sin(toRad(angle));
+    const large = angle - startAngle > 180 ? 1 : 0;
+    return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`;
+  };
 
-    // 3. SIP affordability            — 20 pts
-    // SIP as % of monthly expense — lower is better
-    const sipRatio       = result.monthlySIP / Number(form.monthlyExpense);
-    const affordScore    = Math.round(Math.max(0, 1 - Math.min(sipRatio, 1)) * 20);
+  return (
+    <div style={{ background: bg, borderRadius: 14, padding: "24px 28px", border: `1px solid ${border}`, marginBottom: 28, boxShadow: darkMode ? "0 2px 16px rgba(0,0,0,0.35)" : "0 2px 12px rgba(0,0,0,0.05)" }}>
+      <h2 style={{ fontSize: 16, fontWeight: 800, color: accent, marginBottom: 20, fontFamily: "Montserrat,Arial,sans-serif" }}>
+        Retirement Readiness Score
+      </h2>
 
-    // 4. Time horizon bonus           — 20 pts
-    // More years to retirement = more time to compound
-    const yearsLeft      = Number(form.retirementAge) - Number(form.currentAge);
-    const horizonScore   = Math.round(Math.min(yearsLeft / 35, 1) * 20);
+      <div style={{ display: "flex", gap: 32, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {/* Gauge */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+          <svg width={140} height={80} aria-label={`Readiness score: ${totalScore} out of 100 — ${scoreLabel}`}>
+            {/* Track */}
+            <path d={arcPath(100)} fill="none" stroke={trackBg} strokeWidth={10} strokeLinecap="round"/>
+            {/* Fill */}
+            <path d={arcPath(totalScore)} fill="none" stroke={scoreColor} strokeWidth={10} strokeLinecap="round"/>
+            {/* Score text */}
+            <text x={CX} y={CY - 4} textAnchor="middle" fontSize={22} fontWeight={800} fill={scoreColor} fontFamily="Montserrat,Arial,sans-serif">{totalScore}</text>
+          </svg>
+          <div style={{ marginTop: -8, textAlign: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: scoreColor, fontFamily: "Montserrat,Arial,sans-serif" }}>{scoreLabel}</div>
+            <div style={{ fontSize: 10, color: textMuted, fontFamily: "Montserrat,Arial,sans-serif", marginTop: 2 }}>0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 100</div>
+          </div>
+        </div>
 
-    const total = probScore + durationScore + affordScore + horizonScore;
-
-    const color  = scoreColor(total);
-    const label  = scoreLabel(total);
-
-    // Arc geometry
-    const radius = 70;
-    const cx     = 100;
-    const cy     = 100;
-    const stroke = 12;
-    const circumference = Math.PI * radius; // half circle
-    const pct    = Math.min(total / 100, 1);
-    const dashOffset = circumference * (1 - pct);
-
-    const components = [
-        { label: "Success probability", score: probScore,    max: 35, desc: `${Math.round(result.successProbability)}% Monte Carlo success rate` },
-        { label: "Corpus duration",     score: durationScore, max: 25, desc: `Corpus may last ${result.yearsCorpusLasts} of ${neededYears} needed years` },
-        { label: "SIP affordability",   score: affordScore,  max: 20, desc: `SIP is ${Math.round(sipRatio * 100)}% of current monthly expense` },
-        { label: "Time horizon",        score: horizonScore, max: 20, desc: `${yearsLeft} years to grow your wealth` },
-    ];
-
-    return (
-        <section aria-labelledby="readiness-heading" style={{
-            padding: "24px", borderRadius: 14,
-            border: `2px solid ${color}22`,
-            background: "#fff",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-            marginBottom: 28
-        }}>
-            <h3 id="readiness-heading" style={{
-                fontSize: 15, fontWeight: 700, color: BLUE,
-                marginBottom: 20, fontFamily: "Montserrat,Arial,sans-serif"
-            }}>
-                Retirement Readiness Score
-            </h3>
-
-            <div style={{
-                display: "flex", flexWrap: "wrap",
-                gap: 24, alignItems: "center"
-            }}>
-                {/* Gauge */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <svg
-                        width="200" height="120"
-                        role="img"
-                        aria-label={`Retirement readiness score: ${total} out of 100 — ${label}`}
-                        viewBox="0 0 200 120"
-                    >
-                        {/* Background arc */}
-                        <path
-                            d={`M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}`}
-                            fill="none"
-                            stroke="#f0f0f0"
-                            strokeWidth={stroke}
-                            strokeLinecap="round"
-                        />
-                        {/* Score arc */}
-                        <path
-                            d={`M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}`}
-                            fill="none"
-                            stroke={color}
-                            strokeWidth={stroke}
-                            strokeLinecap="round"
-                            strokeDasharray={circumference}
-                            strokeDashoffset={dashOffset}
-                            style={{ transition: "stroke-dashoffset 1s ease" }}
-                        />
-                        {/* Score number */}
-                        <text
-                            x={cx} y={cy - 8}
-                            textAnchor="middle"
-                            fontSize="32"
-                            fontWeight="700"
-                            fill={color}
-                            fontFamily="Montserrat,Arial,sans-serif"
-                        >
-                            {total}
-                        </text>
-                        <text
-                            x={cx} y={cy + 14}
-                            textAnchor="middle"
-                            fontSize="13"
-                            fill="#666"
-                            fontFamily="Montserrat,Arial,sans-serif"
-                        >
-                            {label}
-                        </text>
-                        {/* 0 and 100 labels */}
-                        <text x={cx - radius - 4} y={cy + 16} fontSize="10" fill="#aaa" textAnchor="end">0</text>
-                        <text x={cx + radius + 4} y={cy + 16} fontSize="10" fill="#aaa" textAnchor="start">100</text>
-                    </svg>
-                </div>
-
-                {/* Component breakdown */}
-                <div style={{ flex: 1, minWidth: 220 }}>
-                    {components.map(c => {
-                        const pct = c.score / c.max;
-                        const barColor = pct >= 0.75 ? GREEN : pct >= 0.5 ? BLUE : pct >= 0.3 ? AMBER : RED;
-                        return (
-                            <div key={c.label} style={{ marginBottom: 12 }}>
-                                <div style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    marginBottom: 4
-                                }}>
-                                    <span style={{ fontSize: 12, color: "#444", fontWeight: 600 }}>
-                                        {c.label}
-                                    </span>
-                                    <span style={{ fontSize: 12, fontWeight: 700, color: barColor }}>
-                                        {c.score}/{c.max}
-                                    </span>
-                                </div>
-                                <div style={{
-                                    height: 6, background: "#f0f0f0",
-                                    borderRadius: 3, overflow: "hidden"
-                                }}
-                                    role="progressbar"
-                                    aria-valuenow={c.score}
-                                    aria-valuemin={0}
-                                    aria-valuemax={c.max}
-                                    aria-label={`${c.label}: ${c.score} of ${c.max}`}
-                                >
-                                    <div style={{
-                                        width: `${pct * 100}%`,
-                                        height: "100%",
-                                        background: barColor,
-                                        borderRadius: 3,
-                                        transition: "width 0.8s ease"
-                                    }} />
-                                </div>
-                                <p style={{ fontSize: 10, color: "#888", marginTop: 2 }}>{c.desc}</p>
-                            </div>
-                        );
-                    })}
-                </div>
+        {/* Component bars */}
+        <div style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column", gap: 14 }}>
+          {components.map(c => (
+            <div key={c.label}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: text, fontFamily: "Montserrat,Arial,sans-serif" }}>{c.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: c.color, fontFamily: "Montserrat,Arial,sans-serif" }}>{c.score}/{c.max}</span>
+              </div>
+              <div style={{ height: 7, background: trackBg, borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ width: `${(c.score / c.max) * 100}%`, height: "100%", background: c.color, borderRadius: 4, transition: "width 1s ease-out" }}/>
+              </div>
+              <p style={{ fontSize: 11, color: textMuted, marginTop: 4, fontFamily: "Montserrat,Arial,sans-serif" }}>{c.desc}</p>
             </div>
+          ))}
+        </div>
+      </div>
 
-            <p style={{ fontSize: 11, color: "#888", marginTop: 12, lineHeight: 1.6 }}>
-                Score is illustrative and based on assumed rates. Not a guarantee of retirement outcomes.
-            </p>
-        </section>
-    );
+      <p style={{ fontSize: 11, color: textMuted, marginTop: 16, fontFamily: "Montserrat,Arial,sans-serif" }}>
+        Score is illustrative and based on assumed rates. Not a guarantee of retirement outcomes.
+      </p>
+    </div>
+  );
 }
