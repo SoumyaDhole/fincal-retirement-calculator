@@ -11,6 +11,8 @@
 
 ### 🌐 [Live Demo → fincal-retirement-calculator-theta.vercel.app](https://fincal-retirement-calculator-theta.vercel.app)
 
+### 🎬 [Demo Video → youtu.be/kdhhhwM0jMU](https://youtu.be/kdhhhwM0jMU)
+
 </div>
 
 ---
