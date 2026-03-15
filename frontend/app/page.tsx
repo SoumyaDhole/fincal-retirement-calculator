@@ -7,6 +7,9 @@ import RetirementChatbot from "../components/RetirementChatbot";
 import ReadinessScore    from "../components/ReadinessScore";
 import WhatIfSliders     from "../components/WhatIfSliders";
 
+// ─── Backend URL ──────────────────────────────────────────────
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+
 // ─── Theme tokens ─────────────────────────────────────────────
 const LIGHT = {
   bg:"#f4f6fb", surface:"#ffffff", surfaceAlt:"#f0f4fb", surfaceCard:"#ffffff",
@@ -62,7 +65,6 @@ const FIELD_EDU:Record<string,{why:string;eg:string}> = {
 };
 
 // ─── Tour steps — split into pre-results and post-results ─────
-// requiresResults:true steps only show after the user has calculated
 const TOUR_ALL = [
   {anchor:"darkmode-btn", pos:"bl", icon:"🌓", title:"Light & Dark Mode",     desc:"Toggle the ☀️/🌙 switch in the top-right corner to switch themes anytime. Dark mode looks great for presentations!", requiresResults:false},
   {anchor:"tour-btn",     pos:"bl", icon:"❓", title:"Guided Tour Button",     desc:"Click this ❓ button anytime to restart this tour and revisit how each feature works.", requiresResults:false},
@@ -71,7 +73,6 @@ const TOUR_ALL = [
   {anchor:"calc-btn",     pos:"tr", icon:"🧮", title:"Calculate Your Plan",   desc:"After filling your details, click this button. You'll get your corpus, SIP, Monte Carlo success %, journey timeline, and more.", requiresResults:false},
   {anchor:"compare-tab",  pos:"br", icon:"⚖", title:"Compare Scenarios",      desc:"Use the Compare tab to run two scenarios side-by-side — great for comparing Conservative vs Aggressive investment styles.", requiresResults:false},
   {anchor:"learn-tab",    pos:"br", icon:"📚", title:"Learn Tab",             desc:"Never heard of Monte Carlo or retirement corpus? Visit Learn for beginner-friendly explainers on every concept used here.", requiresResults:false},
-  // These steps require results to be visible — shown only after Calculate is clicked
   {anchor:"results-section", pos:"br", icon:"📊", title:"Your Results",       desc:"Here's your full retirement plan — corpus, monthly SIP, Monte Carlo probability, journey timeline and more.", requiresResults:true},
   {anchor:"pdf-btn",      pos:"tr", icon:"⬇", title:"Download PDF Report",    desc:"Click here to save a branded, compliance-ready PDF of your full retirement plan that you can share or keep.", requiresResults:true},
 ];
@@ -125,12 +126,10 @@ function TourTooltip({step,onNext,onSkip,total,t,steps}:{step:number;onNext:()=>
           <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
             <div style={{width:36,height:36,borderRadius:9,background:t.surfaceAlt,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{s.icon}</div>
             <div style={{flex:1}}>
-              {/* FIX font size: was 14px, keeping at 12px */}
               <div style={{fontSize:12,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:700,textTransform:"uppercase" as const,letterSpacing:"0.5px",marginBottom:3}}>Step {step+1} of {total}</div>
               <div style={{fontSize:15,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1.2}}>{s.title}</div>
             </div>
           </div>
-          {/* FIX: Georgia removed → Arial */}
           <p style={{fontSize:13,color:t.textSub,lineHeight:1.6,fontFamily:"Arial,sans-serif",marginBottom:14}}>{s.desc}</p>
           <div style={{height:3,background:t.border,borderRadius:2,marginBottom:14}}>
             <div style={{width:`${((step+1)/total)*100}%`,height:"100%",background:t.accentGrad,borderRadius:2,transition:"width 0.3s"}}/>
@@ -159,12 +158,10 @@ function Field({label,name,value,onChange,onBlurClamp,hint,fieldKey,min,t}:{
   return (
     <div style={{position:"relative"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-        {/* FIX font size: was 17px → 14px */}
         <label htmlFor={`f-${name}`} style={{fontSize:14,fontWeight:700,color:t.textSub,fontFamily:"Montserrat,Arial,sans-serif"}}>{label}</label>
         {edu&&<button type="button" onClick={()=>setShowEdu(v=>!v)} aria-expanded={showEdu} suppressHydrationWarning
           style={{background:showEdu?t.accent:"transparent",border:`1px solid ${t.borderAccent}`,borderRadius:"50%",width:22,height:22,fontSize:13,fontWeight:700,color:showEdu?"#fff":t.accent,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>?</button>}
       </div>
-      {/* FIX font size: was 16px → 13px */}
       {hint&&<p style={{fontSize:13,color:t.textMuted,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>{hint}</p>}
       <input
         id={`f-${name}`}
@@ -180,12 +177,9 @@ function Field({label,name,value,onChange,onBlurClamp,hint,fieldKey,min,t}:{
       />
       {showEdu&&edu&&(
         <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:30,background:"#1e293b",borderRadius:10,padding:"13px 15px",boxShadow:"0 8px 32px rgba(0,0,0,0.4)",marginTop:4,border:"1px solid #334155"}}>
-          {/* FIX font size: was 16px → 13px */}
           <div style={{fontSize:13,fontWeight:700,color:"#93c5fd",marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif"}}>Why this matters</div>
-          {/* FIX: Georgia removed → Arial */}
           <p style={{fontSize:13,color:"#e2e8f0",marginBottom:8,lineHeight:1.6,fontFamily:"Arial,sans-serif"}}>{edu.why}</p>
           <div style={{fontSize:13,fontWeight:700,color:"#86efac",marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Example</div>
-          {/* FIX: Georgia removed → Arial */}
           <p style={{fontSize:13,color:"#bbf7d0",lineHeight:1.6,fontFamily:"Arial,sans-serif"}}>{edu.eg}</p>
         </div>
       )}
@@ -200,11 +194,8 @@ function ResultCard({title,value,sub,highlight,color,icon,t}:{title:string;value
       onMouseEnter={e=>{const d=e.currentTarget as HTMLDivElement;d.style.transform="translateY(-2px)";d.style.boxShadow="0 6px 20px rgba(0,0,0,0.15)";}}
       onMouseLeave={e=>{const d=e.currentTarget as HTMLDivElement;d.style.transform="translateY(0)";d.style.boxShadow=t.cardShadow;}}>
       {highlight&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:t.accentGrad}}/>}
-      {/* FIX font size: was 15px → 12px */}
       <p style={{fontSize:12,color:t.textMuted,marginBottom:6,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:700,textTransform:"uppercase" as const,letterSpacing:"0.6px"}}>{icon&&<span style={{marginRight:5}}>{icon}</span>}{title}</p>
-      {/* FIX font size: was 28px → 22px */}
       <p style={{fontSize:22,fontWeight:800,color:color??t.accent,lineHeight:1.2,fontFamily:"Montserrat,Arial,sans-serif"}}>{value}</p>
-      {/* FIX font size: was 16px → 13px */}
       {sub&&<p style={{fontSize:13,color:t.textMuted,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif"}}>{sub}</p>}
     </div>
   );
@@ -218,14 +209,10 @@ function BucketCard({label,value,rate,color,pct,icon,t}:{label:string;value:stri
       onMouseLeave={e=>(e.currentTarget as HTMLDivElement).style.transform="translateY(0)"}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
         <span style={{fontSize:22}}>{icon}</span>
-        {/* FIX font size: was 15px → 12px */}
         <span style={{fontSize:12,fontWeight:700,color:"#fff",background:color,padding:"3px 10px",borderRadius:20,fontFamily:"Montserrat,Arial,sans-serif"}}>{pct}</span>
       </div>
-      {/* FIX font size: was 18px → 14px */}
       <p style={{fontSize:14,fontWeight:700,color:t.text,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>{label}</p>
-      {/* FIX font size: was 26px → 20px */}
       <p style={{fontSize:20,fontWeight:800,color,fontFamily:"Montserrat,Arial,sans-serif"}}>{value}</p>
-      {/* FIX font size: was 16px → 13px */}
       <p style={{fontSize:13,color:t.textMuted,marginTop:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Assumed {rate} p.a.</p>
     </div>
   );
@@ -250,28 +237,20 @@ function InteractiveTimeline({result,form,t}:{result:any;form:FormState;t:Theme}
   const pct=((sliderAge-currentAge)/(lifeExp-currentAge))*100;
   return (
     <section aria-labelledby="itl-h" style={{background:t.surfaceCard,borderRadius:14,padding:"22px 24px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:28}}>
-      {/* FIX font size: was 20px → 16px */}
       <h3 id="itl-h" style={{fontSize:16,fontWeight:800,color:t.accent,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>📍 Your Retirement Journey</h3>
-      {/* FIX font size: was 17px → 13px */}
       <p style={{fontSize:13,color:t.textMuted,marginBottom:18,fontFamily:"Montserrat,Arial,sans-serif"}}>Drag the slider to explore your estimated corpus at any age.</p>
       <div style={{background:t.surfaceAlt,borderRadius:12,padding:"16px 20px",marginBottom:18,border:`2px solid ${phaseColor}30`,display:"flex",flexWrap:"wrap" as const,gap:18,alignItems:"center"}}>
         <div style={{textAlign:"center" as const,minWidth:90}}>
-          {/* FIX font size: was 34px → 26px */}
           <div style={{fontSize:26,fontWeight:800,color:phaseColor,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1}}>Age {sliderAge}</div>
-          {/* FIX font size: was 15px → 12px */}
           <div style={{fontSize:12,color:t.textMuted,marginTop:4,fontFamily:"Montserrat,Arial,sans-serif",textTransform:"uppercase" as const,letterSpacing:"0.5px",fontWeight:600}}>{phase==="accumulation"?"Building wealth":"Drawing down"}</div>
         </div>
         <div style={{width:1,height:48,background:t.border,flexShrink:0}}/>
         <div style={{flex:1,minWidth:160}}>
-          {/* FIX font size: was 16px → 13px */}
           <div style={{fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:3,fontWeight:600}}>Estimated corpus</div>
-          {/* FIX font size: was 30px → 22px */}
           <div style={{fontSize:22,fontWeight:800,color:phaseColor,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(Math.round(corpus))}</div>
         </div>
         {phase==="accumulation"&&<><div style={{width:1,height:48,background:t.border,flexShrink:0}}/><div>
-          {/* FIX font size: was 16px → 13px */}
           <div style={{fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginBottom:3,fontWeight:600}}>{retireAge-sliderAge} years to retirement</div>
-          {/* FIX font size: was 19px → 15px */}
           <div style={{fontSize:15,fontWeight:700,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif"}}>SIP: {fmtINR(result.monthlySIP)}/mo</div>
         </div></>}
         {phase==="withdrawal"&&<><div style={{width:1,height:48,background:t.border,flexShrink:0}}/><div>
@@ -280,7 +259,6 @@ function InteractiveTimeline({result,form,t}:{result:any;form:FormState;t:Theme}
         </div></>}
       </div>
       <div style={{marginBottom:10}}>
-        {/* FIX font size: was 15px → 12px */}
         <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:t.textMuted,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600}}><span>₹0</span><span>Peak: {fmtINR(maxCorpus)}</span></div>
         <div style={{height:10,background:t.border,borderRadius:5,overflow:"hidden"}}><div style={{width:`${Math.min(100,(corpus/maxCorpus)*100)}%`,height:"100%",background:`linear-gradient(90deg,${phaseColor}88,${phaseColor})`,borderRadius:5,transition:"width 0.1s"}}/></div>
       </div>
@@ -295,7 +273,6 @@ function InteractiveTimeline({result,form,t}:{result:any;form:FormState;t:Theme}
         <input type="range" min={currentAge} max={lifeExp} step={1} value={sliderAge} onChange={e=>setSliderAge(Number(e.target.value))} aria-label="Explore corpus by age" suppressHydrationWarning
           style={{position:"absolute",left:0,top:-6,width:"100%",opacity:0,height:22,cursor:"pointer",margin:0}}/>
       </div>
-      {/* FIX font size: was 16px → 13px */}
       <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:500}}><span>Age {currentAge}</span><span style={{color:t.accent,fontWeight:600}}>← Drag to explore →</span><span>Age {lifeExp}</span></div>
     </section>
   );
@@ -312,9 +289,7 @@ function SIPLumpsumToggle({result,form,t}:{result:any;form:FormState;t:Theme}) {
     <div style={{background:t.surfaceCard,borderRadius:14,padding:"18px 22px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:28}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap" as const,gap:10}}>
         <div>
-          {/* FIX font size: was 19px → 15px */}
           <h3 style={{fontSize:15,fontWeight:800,color:t.accent,fontFamily:"Montserrat,Arial,sans-serif",margin:0}}>SIP vs Lumpsum Comparison</h3>
-          {/* FIX font size: was 16px → 13px */}
           <p style={{fontSize:13,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginTop:3}}>Two paths to the same retirement corpus</p>
         </div>
         <div style={{display:"flex",background:t.surfaceAlt,borderRadius:8,padding:3,gap:3}}>
@@ -329,9 +304,7 @@ function SIPLumpsumToggle({result,form,t}:{result:any;form:FormState;t:Theme}) {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10}}>
           {[{label:"Monthly investment",value:fmtINR(result.monthlySIP),color:t.accent},{label:"Total invested",value:fmtINR(totalInvested),color:t.textSub},{label:"Estimated returns",value:fmtINR(returns),color:t.green},{label:"Final corpus",value:fmtINR(result.requiredCorpus),color:t.green}].map(c=>(
             <div key={c.label} style={{background:t.surfaceAlt,borderRadius:10,padding:"12px 14px",border:`1px solid ${t.border}`}}>
-              {/* FIX font size: was 14px → 11px */}
               <div style={{fontSize:11,color:t.textMuted,textTransform:"uppercase" as const,letterSpacing:"0.6px",marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600}}>{c.label}</div>
-              {/* FIX font size: was 23px → 18px */}
               <div style={{fontSize:18,fontWeight:800,color:c.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{c.value}</div>
             </div>
           ))}
@@ -346,7 +319,6 @@ function SIPLumpsumToggle({result,form,t}:{result:any;form:FormState;t:Theme}) {
           ))}
         </div>
       )}
-      {/* FIX font size: was 15px → 12px */}
       <p style={{fontSize:12,color:t.textMuted,marginTop:10,fontFamily:"Montserrat,Arial,sans-serif"}}>* Illustrative only. Lumpsum uses same pre-retirement return assumption.</p>
     </div>
   );
@@ -361,7 +333,7 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
       const jsPDFModule=await import("jspdf");
       const jsPDF=jsPDFModule.default;
       const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
-      const W=210,M=14,PH=297; // page width, margin, page height
+      const W=210,M=14,PH=297;
       const B:[number,number,number]=[34,76,135];
       const R:[number,number,number]=[218,56,50];
       const GR:[number,number,number]=[42,120,50];
@@ -372,13 +344,10 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
       const rs=(s:string)=>s.replace(/₹/g,"Rs.");
       let y=0;
 
-      // ── helper: add new page + mini header if content would overflow ──
       const need=(h:number)=>{
-        if(y+h>PH-32){ // 32mm reserved for footer
-          // draw footer on current page first
+        if(y+h>PH-32){
           drawFooter();
           doc.addPage();
-          // mini header on continuation page
           doc.setFillColor(...B);doc.rect(0,0,W,12,"F");
           doc.setTextColor(...W3);doc.setFont("helvetica","bold");doc.setFontSize(7);
           doc.text("OPTIWEALTH  |  FinCal Retirement Report  |  Technex'26",M,8);
@@ -386,7 +355,6 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
         }
       };
 
-      // ── footer drawer (called before each new page and at end) ────────
       const drawFooter=()=>{
         const fy=PH-28;
         doc.setFillColor(...B);doc.rect(0,fy,W,28,"F");
@@ -401,7 +369,6 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
         doc.text("Optiwealth  |  FinCal  |  HDFC Mutual Fund  |  Technex'26, IIT (BHU) Varanasi",W/2,fy+21,{align:"center"});
       };
 
-      // ── HEADER BAND ──────────────────────────────────────────────────
       doc.setFillColor(...B);doc.rect(0,0,W,44,"F");
       doc.setTextColor(...W3);
       doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text("OPTIWEALTH",M,10);
@@ -413,7 +380,6 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
       doc.text("Technex'26 | IIT (BHU) Varanasi",W-M,25,{align:"right"});
       y=50;
 
-      // ── YOUR PROFILE BOX ─────────────────────────────────────────────
       need(34);
       doc.setFillColor(...BG);doc.roundedRect(M,y,W-M*2,34,3,3,"F");
       doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(10);
@@ -430,7 +396,6 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
       doc.text(`Years to Retire: ${result.yearsToRetirement}`,c4,y+26);
       y+=40;
 
-      // ── KEY RESULTS ───────────────────────────────────────────────────
       need(70);
       doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(10);
       doc.text("Key Results",M,y+7);y+=12;
@@ -462,7 +427,6 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
         y+=27;
       }
 
-      // ── EXPENSE BREAKDOWN ─────────────────────────────────────────────
       need(62);
       doc.setTextColor(...B);doc.setFont("helvetica","bold");doc.setFontSize(10);
       doc.text("Expense Breakdown at Retirement",M,y+7);y+=12;
@@ -479,7 +443,6 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
       });
       y+=52;
 
-      // ── COST OF WAITING ───────────────────────────────────────────────
       need(36);
       doc.setFillColor(255,245,245);doc.roundedRect(M,y,W-M*2,32,3,3,"F");
       doc.setDrawColor(...R);doc.setLineWidth(0.4);doc.roundedRect(M,y,W-M*2,32,3,3,"D");
@@ -492,7 +455,6 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
       doc.text(`Total extra paid: ${rs(fmtINR(result.regret.extraTotalPaid))}`,W/2+6,y+24);
       y+=37;
 
-      // ── ASSUMPTIONS ───────────────────────────────────────────────────
       need(22);
       doc.setFillColor(...BG);doc.roundedRect(M,y,W-M*2,20,3,3,"F");
       doc.setTextColor(...SL);doc.setFont("helvetica","bold");doc.setFontSize(7);
@@ -505,9 +467,7 @@ function PDFExportButton({result,inputs,t}:{result:any;inputs:any;t:Theme}) {
       );
       y+=24;
 
-      // ── FOOTER (always at bottom of last page) ────────────────────────
       drawFooter();
-
       doc.save("Optiwealth_FinCal_Retirement_Report.pdf");
     }catch(e:any){
       alert("PDF error: jspdf is not installed.\n\nTo fix, open a terminal and run:\n  cd frontend\n  npm install jspdf\n\nThen click Download Report again.");
@@ -538,9 +498,7 @@ function LearnTab({t}:{t:Theme}) {
   return (
     <section style={{marginTop:32}} aria-labelledby="learn-h">
       <div style={{borderBottom:`3px solid ${t.accent}`,paddingBottom:14,marginBottom:24}}>
-        {/* FIX font size: was 28px → 22px */}
         <h2 id="learn-h" style={{fontSize:22,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"-0.3px"}}>Retirement Planning 101</h2>
-        {/* FIX font size: was 18px → 14px; FIX: Georgia removed → Arial */}
         <p style={{fontSize:14,color:t.textSub,marginTop:5,fontFamily:"Arial,sans-serif"}}>New to retirement planning? These explainers decode every concept used in your report — including how to set up the AI chatbot.</p>
       </div>
       <div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
@@ -548,7 +506,6 @@ function LearnTab({t}:{t:Theme}) {
           <div key={s.id} style={{border:`1.5px solid ${open===s.id?t.accent:t.border}`,borderRadius:12,overflow:"hidden",background:open===s.id?t.surfaceAlt:t.surfaceCard,transition:"border-color 0.15s"}}>
             <button onClick={()=>setOpen(open===s.id?null:s.id)} aria-expanded={open===s.id}
               style={{width:"100%",padding:"15px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"transparent",border:"none",cursor:"pointer",textAlign:"left" as const}}>
-              {/* FIX font size: was 19px → 15px */}
               <span style={{fontSize:15,fontWeight:700,color:t.text,fontFamily:"Montserrat,Arial,sans-serif"}}>{s.title}</span>
               <span style={{fontSize:18,color:t.accent,fontWeight:700,transform:open===s.id?"rotate(180deg)":"rotate(0)",transition:"transform 0.2s"}}>⌄</span>
             </button>
@@ -567,7 +524,6 @@ function LearnTab({t}:{t:Theme}) {
           </div>
         ))}
       </div>
-      {/* FIX font size: was 18px → 14px */}
       <div style={{marginTop:22,padding:"16px 20px",background:`${t.accent}15`,borderRadius:12,border:`1.5px solid ${t.accent}30`,fontSize:14,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",lineHeight:1.6}}>
         <strong>💡 Key takeaway:</strong> The earlier you start, the smaller your monthly investment. Time is your most powerful financial asset.
       </div>
@@ -590,11 +546,8 @@ export default function Home() {
   const [error,setError]=useState("");
   const [formError,setFormError]=useState<string|null>(null);
 
-  // ── Tour: derive visible steps based on whether results exist ──
-  // Pre-results steps always show; post-results steps only after Calculate
   const visibleTour = TOUR_ALL.filter(s => !s.requiresResults || result !== null);
 
-  // ── Auto-show tour on every page load (pre-results steps only) ─
   useEffect(()=>{
     const timer = setTimeout(()=> setTourStep(0), 800);
     return ()=> clearTimeout(timer);
@@ -660,12 +613,13 @@ export default function Home() {
     setError("");setLoading(true);
     try{
       const payload={currentAge:Number(form.currentAge),retirementAge:Number(form.retirementAge),lifeExpectancy:Number(form.lifeExpectancy),monthlyExpense:Number(form.monthlyExpense),inflationRate:Number(form.inflationRate)/100,preReturn:Number(form.preReturn)/100,postReturn:Number(form.postReturn)/100,stepUpRate:Number(form.stepUpRate)/100,existingCorpus:Number(form.existingCorpus),lumpSumWithdrawal:Number(form.lumpSumWithdrawal)};
-      const res=await fetch("http://localhost:5000/api/retirement/calculate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      // ── FIXED: uses BACKEND_URL env var, falls back to localhost for local dev ──
+      const res=await fetch(`${BACKEND_URL}/api/retirement/calculate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       if(!res.ok)throw new Error("Server error");
       const data=await res.json();
       setResult(data.data);
       setTimeout(()=>document.getElementById("results-section")?.scrollIntoView({behavior:"smooth",block:"start"}),100);
-    }catch{setError("Could not connect to backend. Make sure it is running on port 5000.");}
+    }catch{setError("Could not connect to backend. Make sure it is running.");}
     setLoading(false);
   };
 
@@ -678,7 +632,6 @@ export default function Home() {
     <>
       <a href="#main-content" className="skip-link">Skip to main content</a>
 
-      {/* Tour — uses visibleTour so post-results steps only appear after Calculate */}
       {tourStep!==null&&<TourTooltip step={tourStep} onNext={nextTour} onSkip={doneTour} total={visibleTour.length} t={t} steps={visibleTour}/>}
 
       <style>{`
@@ -710,7 +663,6 @@ export default function Home() {
       <nav aria-label="Main navigation" style={{borderBottom:`1px solid ${t.border}`,background:t.navBg,position:"sticky",top:0,zIndex:100,boxShadow:t.navShadow,transition:"background 0.25s"}}>
         <div style={{maxWidth:960,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",gap:4}}>
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0",marginRight:"auto"}}>
-            {/* Optiwealth logo mark — inline SVG, no external file needed */}
             <svg width="36" height="36" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style={{borderRadius:9,flexShrink:0}} aria-hidden="true">
               <rect width="120" height="120" rx="24" fill="#224c87"/>
               <rect x="22" y="62" width="16" height="34" rx="4" fill="rgba(255,255,255,0.35)"/>
@@ -751,15 +703,11 @@ export default function Home() {
         {activeTab==="calculator"&&(
           <>
             <header style={{marginBottom:28}}>
-              {/* FIX font size: was 32px → 26px */}
               <h1 style={{fontSize:26,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:"-0.5px",margin:0}}>Retirement Planning Calculator</h1>
-              {/* FIX font size: was 18px → 14px; FIX: Georgia removed → Arial */}
               <p style={{fontSize:14,color:t.textSub,marginTop:7,lineHeight:1.65,fontFamily:"Arial,sans-serif",maxWidth:680}}>Estimate how much you need to save for a comfortable retirement — with inflation buckets, 1,000 Monte Carlo simulations, and personalised SIP recommendations.</p>
-              {/* FIX font size: was 16px → 13px */}
               <p style={{fontSize:13,color:t.textMuted,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif"}}>ⓘ All values are <strong>illustrative estimates</strong> for educational purposes only. Not investment advice.</p>
             </header>
 
-            {/* Persona — heading then 3 buttons side by side */}
             <section aria-labelledby="persona-h" id="persona-sec" style={{marginBottom:16}}>
               <h2 id="persona-h" style={{fontSize:14,fontWeight:700,color:t.textSub,marginBottom:9,fontFamily:"Montserrat,Arial,sans-serif"}}>🚀 Quick start — pick a profile</h2>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
@@ -773,7 +721,6 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Scenario — heading then 3 buttons side by side */}
             <section aria-labelledby="scenario-h" style={{marginBottom:24}}>
               <h2 id="scenario-h" style={{fontSize:14,fontWeight:700,color:t.textSub,marginBottom:9,fontFamily:"Montserrat,Arial,sans-serif"}}>📈 Investment scenario</h2>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
@@ -787,11 +734,8 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Form */}
             <section aria-labelledby="form-h" id="form-sec" style={{background:t.surfaceCard,borderRadius:14,padding:"24px 28px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:24}}>
-              {/* FIX font size: was 20px → 16px */}
               <h2 id="form-h" style={{fontSize:16,fontWeight:700,color:t.accent,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>Your details</h2>
-              {/* FIX font size: was 17px → 13px */}
               <p style={{fontSize:13,color:t.textMuted,marginBottom:20,fontFamily:"Montserrat,Arial,sans-serif"}}>Click <strong style={{color:t.accent}}>?</strong> next to any field to learn why it matters.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"18px 26px"}}>
                 <Field label="Current age (years)"                name="currentAge"     value={form.currentAge}     onChange={handleChange} onBlurClamp={handleBlurClamp} min={1}   hint="Your age today"                           fieldKey="currentAge"     t={t}/>
@@ -819,14 +763,11 @@ export default function Home() {
               </button>
             </section>
 
-            {/* Results — only rendered after calculation */}
             {result&&(
               <section id="results-section" aria-label="Retirement calculation results" aria-live="polite">
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap" as const,gap:12,borderBottom:`3px solid ${t.accent}`,paddingBottom:14,marginBottom:24}}>
                   <div>
-                    {/* FIX font size: was 28px → 22px */}
                     <h2 style={{fontSize:22,fontWeight:800,color:t.text,fontFamily:"Montserrat,Arial,sans-serif",margin:0}}>Your Retirement Plan</h2>
-                    {/* FIX font size: was 17px → 13px */}
                     <p style={{fontSize:13,color:t.textMuted,marginTop:3,fontFamily:"Montserrat,Arial,sans-serif"}}>Based on assumed rates — illustrative projections only.</p>
                   </div>
                   <PDFExportButton result={result} inputs={numericInputs} t={t}/>
@@ -848,7 +789,6 @@ export default function Home() {
                     {icon:"📆",title:"Corpus duration",             value:`${result.yearsCorpusLasts} yrs`,           sub:"Estimated years it lasts",highlight:false,color:undefined},
                     {icon:"🎲",title:"Success probability",         value:`${Math.round(result.successProbability)}%`,sub:"1,000 Monte Carlo sims",highlight:false,color:risk!.color},
                   ];
-                  // Split into rows of 3 — last row gets equal-width cards spanning full row
                   const rows:typeof cards[] = [];
                   for(let i=0;i<cards.length;i+=3) rows.push(cards.slice(i,i+3));
                   return (
@@ -867,17 +807,13 @@ export default function Home() {
                 })()}
 
                 <div style={{padding:"20px 24px",background:t.surfaceAlt,borderRadius:14,border:`2px solid ${t.borderAccent}`,marginBottom:24}}>
-                  {/* FIX font size: was 20px → 16px */}
                   <h3 style={{fontSize:16,fontWeight:800,color:t.accent,marginBottom:8,fontFamily:"Montserrat,Arial,sans-serif"}}>💵 Your estimated retirement paycheck</h3>
-                  {/* FIX font size: was 19px/28px → 14px/22px; FIX: Georgia removed → Arial */}
                   <p style={{fontSize:14,color:t.text,lineHeight:1.8,fontFamily:"Arial,sans-serif"}}>A corpus of <strong style={{color:t.accent}}>{fmtINR(result.requiredCorpus)}</strong> could provide <strong style={{color:t.accent,fontSize:22,fontFamily:"Montserrat,Arial,sans-serif"}}>{fmtINR(result.monthlyRetirementIncome)}</strong>/month at retirement.</p>
-                  {/* FIX font size: was 17px → 13px */}
                   <p style={{fontSize:13,color:t.textSub,marginTop:5,fontFamily:"Montserrat,Arial,sans-serif"}}>Equivalent to today's <strong>{fmtINR(result.monthlyIncomeInTodaysMoney)}</strong>/month in purchasing power.</p>
                 </div>
 
                 <InteractiveTimeline result={result} form={form} t={t}/>
 
-                {/* Lumpsum withdrawal breakdown — only shown when user set a lumpsum */}
                 {result.lumpSumWithdrawal>0&&(
                   <section aria-labelledby="lumpsum-h" style={{background:t.surfaceCard,borderRadius:14,padding:"20px 24px",border:`2px solid ${t.yellow}40`,boxShadow:t.cardShadow,marginBottom:24}}>
                     <h3 id="lumpsum-h" style={{fontSize:15,fontWeight:800,color:t.yellow,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>🏠 Lumpsum Withdrawal Plan</h3>
@@ -899,7 +835,6 @@ export default function Home() {
                         <p style={{fontSize:12,color:t.textMuted,fontFamily:"Montserrat,Arial,sans-serif",marginTop:3}}>Funds monthly withdrawals</p>
                       </div>
                     </div>
-                    {/* Visual split bar */}
                     <div style={{marginTop:8}}>
                       <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:t.textMuted,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif"}}>
                         <span>Corpus split</span>
@@ -921,9 +856,7 @@ export default function Home() {
                 <SIPLumpsumToggle result={result} form={form} t={t}/>
 
                 <section aria-labelledby="buckets-h" style={{marginBottom:24}}>
-                  {/* FIX font size: was 19px → 15px */}
                   <h3 id="buckets-h" style={{fontSize:15,fontWeight:700,color:t.accent,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>Expense breakdown at retirement</h3>
-                  {/* FIX font size: was 17px → 13px */}
                   <p style={{fontSize:13,color:t.textSub,marginBottom:12,fontFamily:"Montserrat,Arial,sans-serif"}}>Different expense types inflate at different rates. Medical costs inflate fastest.</p>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
                     <BucketCard label="General living"     value={fmtINR(result.expenseBuckets.general)}   rate="6%" color="#4f7ec4" pct="60% of expenses" icon="🛒" t={t}/>
@@ -933,22 +866,17 @@ export default function Home() {
                 </section>
 
                 <section aria-labelledby="risk-h" style={{marginBottom:24}}>
-                  {/* FIX font size: was 19px → 15px */}
                   <h3 id="risk-h" style={{fontSize:15,fontWeight:700,color:t.accent,marginBottom:8,fontFamily:"Montserrat,Arial,sans-serif"}}>Retirement risk level</h3>
                   <div style={{display:"inline-flex",alignItems:"center",gap:12,background:risk!.bg,padding:"14px 20px",borderRadius:12,border:`1.5px solid ${risk!.border}`}}>
-                    {/* FIX font size: was 28px → 20px */}
                     <span style={{fontSize:20,fontWeight:800,color:risk!.color,fontFamily:"Montserrat,Arial,sans-serif",letterSpacing:1}}>{risk!.label}</span>
                     <span style={{fontSize:20,fontWeight:700,color:risk!.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{Math.round(result.successProbability)}%</span>
-                    {/* FIX font size: was 17px → 13px */}
                     <span style={{fontSize:13,color:risk!.color,opacity:0.85,fontFamily:"Montserrat,Arial,sans-serif"}}>success probability</span>
                   </div>
                   <p style={{fontSize:13,color:t.textMuted,marginTop:7,fontFamily:"Montserrat,Arial,sans-serif"}}>SAFE ≥ 80% &nbsp;|&nbsp; MODERATE ≥ 50% &nbsp;|&nbsp; RISKY &lt; 50%</p>
                 </section>
 
                 <section aria-labelledby="regret-h" style={{padding:"20px 24px",background:`${t.red}10`,borderRadius:14,border:`1.5px solid ${t.red}35`,marginBottom:24}}>
-                  {/* FIX font size: was 19px → 15px */}
                   <h3 id="regret-h" style={{fontSize:15,fontWeight:700,color:t.red,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>⏰ Cost of waiting {result.regret.delayYears} years</h3>
-                  {/* FIX font size: was 17px → 13px */}
                   <p style={{fontSize:13,color:t.textMuted,marginBottom:14,fontFamily:"Montserrat,Arial,sans-serif"}}>What if you start {result.regret.delayYears} years from now instead of today?</p>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
                     {[
@@ -958,21 +886,16 @@ export default function Home() {
                       {label:"Total extra you'd pay",   value:fmtINR(result.regret.extraTotalPaid),  color:t.red,  suffix:""},
                     ].map(item=>(
                       <div key={item.label} style={{background:t.surfaceCard,borderRadius:10,padding:"12px 14px",border:`1px solid ${t.border}`}}>
-                        {/* FIX font size: was 15px → 12px */}
                         <p style={{fontSize:12,color:t.textMuted,marginBottom:4,fontFamily:"Montserrat,Arial,sans-serif",fontWeight:600,textTransform:"uppercase" as const,letterSpacing:"0.5px"}}>{item.label}</p>
-                        {/* FIX font size: was 24px → 18px */}
                         <p style={{fontSize:18,fontWeight:800,color:item.color,fontFamily:"Montserrat,Arial,sans-serif"}}>{item.value}<span style={{fontSize:13,fontWeight:400}}>{item.suffix}</span></p>
                       </div>
                     ))}
                   </div>
-                  {/* FIX font size: was 16px → 12px */}
                   <p style={{fontSize:12,color:t.textMuted,marginTop:12,fontFamily:"Montserrat,Arial,sans-serif"}}>Illustrative only.</p>
                 </section>
 
                 <section aria-labelledby="sens-h" style={{marginBottom:24}}>
-                  {/* FIX font size: was 19px → 15px */}
                   <h3 id="sens-h" style={{fontSize:15,fontWeight:700,color:t.accent,marginBottom:5,fontFamily:"Montserrat,Arial,sans-serif"}}>Sensitivity analysis — monthly SIP required</h3>
-                  {/* FIX font size: was 17px → 13px */}
                   <p style={{fontSize:13,color:t.textSub,marginBottom:12,fontFamily:"Montserrat,Arial,sans-serif"}}>Each cell is recalculated from scratch for that exact combination of return and inflation. Highlighted = your current rates.</p>
                   <div style={{overflowX:"auto" as const}}>
                     <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:13}} aria-label="Sensitivity analysis">
@@ -994,19 +917,15 @@ export default function Home() {
                       </tbody>
                     </table>
                   </div>
-                  {/* FIX font size: was 16px → 12px */}
                   <p style={{fontSize:12,color:t.textMuted,marginTop:7,fontFamily:"Montserrat,Arial,sans-serif"}}>All values illustrative. Not a guarantee of returns.</p>
                 </section>
 
                 <section aria-labelledby="chart-h" style={{borderRadius:14,padding:"22px",border:`1px solid ${t.border}`,boxShadow:t.cardShadow,marginBottom:24,background:t.surfaceCard}}>
-                  {/* FIX font size: was 22px → 17px */}
                   <h2 id="chart-h" style={{fontSize:17,fontWeight:800,color:t.accent,marginBottom:3,fontFamily:"Montserrat,Arial,sans-serif"}}>Retirement wealth projection</h2>
-                  {/* FIX font size: was 17px → 13px */}
                   <p style={{fontSize:13,color:t.textMuted,marginBottom:16,fontFamily:"Montserrat,Arial,sans-serif"}}>Corpus growth during working years, then drawdown during retirement.</p>
                   <RetirementChart timeline={result.timeline} monteCarloFan={result.monteCarloFan} yearsToRetirement={result.yearsToRetirement} darkMode={darkMode}/>
                 </section>
 
-                {/* FIX: pass darkMode prop so WhatIfSliders adapts to theme */}
                 <WhatIfSliders results={result} inputs={numericInputs} darkMode={darkMode}/>
 
                 <div role="note" style={{marginTop:22,padding:"14px 18px",fontSize:12,color:t.textMuted,borderTop:`1px solid ${t.border}`,lineHeight:1.8,fontFamily:"Montserrat,Arial,sans-serif",background:t.surfaceAlt,borderRadius:10}}>
@@ -1026,7 +945,6 @@ export default function Home() {
 
       {result&&activeTab==="calculator"&&<RetirementChatbot result={result} form={form}/>}
 
-      {/* FIX font size: was 16px → 12px (disclaimer should be small but readable per rules) */}
       <div role="contentinfo" aria-label="Legal disclaimer" style={{position:"fixed" as const,bottom:0,left:0,right:0,background:t.disclaimerBg,borderTop:`1px solid ${t.border}`,padding:"8px 24px",fontSize:12,color:t.textSub,zIndex:998,lineHeight:1.7,fontFamily:"Arial,sans-serif",transition:"background 0.25s"}}>
         This tool has been designed for information purposes only. Actual results may vary depending on various factors involved in capital market. Investor should not consider above as a recommendation for any schemes of HDFC Mutual Fund. Past performance may or may not be sustained in future and is not a guarantee of any future returns.
       </div>
