@@ -110,13 +110,14 @@ export default function ComparisonView({ darkMode = false }: ComparisonViewProps
     const compare = async () => {
         setError(""); setLoading(true);
         try {
+            const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
             const [resA, resB] = await Promise.all([
-                fetch("http://localhost:5000/api/retirement/calculate", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(toPayload(formA)) }),
-                fetch("http://localhost:5000/api/retirement/calculate", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(toPayload(formB)) })
+                fetch(`${BACKEND}/api/retirement/calculate`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(toPayload(formA)) }),
+                fetch(`${BACKEND}/api/retirement/calculate`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(toPayload(formB)) })
             ]);
             const [dA, dB] = await Promise.all([resA.json(), resB.json()]);
             setResultA(dA.data); setResultB(dB.data);
-        } catch { setError("Could not connect to backend. Make sure it is running on port 5000."); }
+        } catch { setError("Could not connect to backend. Make sure it is running."); }
         setLoading(false);
     };
 
