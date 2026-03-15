@@ -4,7 +4,16 @@ const cors    = require("cors");
 const retirementRoutes = require("./routes/retirementRoutes");
 
 const app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: [
+    "https://fincal-retirement-calculator-theta.vercel.app",
+    "http://localhost:3000"
+  ],
+  methods: ["GET","POST","OPTIONS"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(express.json());
 
 app.get("/", (req, res) => res.send("FinCal Backend Running"));
@@ -36,4 +45,6 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.listen(5000, () => console.log("✅ FinCal Backend running on port 5000"));
+// ── FIX: use Railway's dynamic PORT, fallback to 5000 for local ──
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`✅ FinCal Backend running on port ${PORT}`));
